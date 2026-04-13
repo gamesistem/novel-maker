@@ -1,0 +1,2064 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorldForge — Criador de Mundos</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0b0e;
+  --bg2: #111318;
+  --bg3: #181c24;
+  --bg4: #1e2330;
+  --panel: #13161e;
+  --border: #2a2f3d;
+  --border2: #3a4155;
+  --gold: #c9a84c;
+  --gold2: #e8c97a;
+  --gold3: #f5e4a8;
+  --teal: #4ecdc4;
+  --teal2: #7eeae3;
+  --crimson: #c94444;
+  --violet: #7c6fc9;
+  --violet2: #a89ee0;
+  --text: #d4cfc5;
+  --text2: #8a8577;
+  --text3: #5a5650;
+  --font-title: 'Cinzel', serif;
+  --font-body: 'Crimson Pro', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 6px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.6);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:16px;min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── LAYOUT ── */
+#app{display:flex;height:100vh;overflow:hidden}
+#sidebar{width:220px;min-width:220px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#topbar{height:48px;min-height:48px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px}
+#content{flex:1;overflow:auto;padding:20px;position:relative}
+
+/* ── SIDEBAR ── */
+.sidebar-logo{padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.sidebar-logo h1{font-family:var(--font-title);font-size:14px;letter-spacing:2px;color:var(--gold);font-weight:600}
+.sidebar-logo span{font-size:20px}
+.nav-section{padding:8px 0;border-bottom:1px solid var(--border)}
+.nav-section-label{font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:var(--text3);padding:6px 16px 4px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:all .15s;font-size:14px;color:var(--text2);border-left:2px solid transparent;font-family:var(--font-body)}
+.nav-item:hover{background:var(--bg3);color:var(--text);border-left-color:var(--border2)}
+.nav-item.active{background:var(--bg3);color:var(--gold);border-left-color:var(--gold)}
+.nav-item .icon{width:16px;text-align:center;opacity:.7;font-size:13px}
+.nav-item.active .icon{opacity:1}
+
+/* ── TOPBAR ── */
+#topbar .world-name{font-family:var(--font-title);font-size:13px;letter-spacing:1px;color:var(--gold2)}
+#topbar .sep{color:var(--text3)}
+#topbar .page-name{font-size:13px;color:var(--text2)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--radius);border:1px solid var(--border2);background:transparent;color:var(--text);cursor:pointer;font-family:var(--font-body);font-size:13px;transition:all .15s}
+.btn:hover{background:var(--bg3);border-color:var(--gold);color:var(--gold)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#0a0800;font-weight:600}
+.btn.primary:hover{background:var(--gold2)}
+.btn.danger{border-color:var(--crimson);color:var(--crimson)}
+.btn.danger:hover{background:rgba(201,68,68,.1)}
+.btn.sm{padding:4px 10px;font-size:12px}
+.ml-auto{margin-left:auto}
+
+/* ── PANELS ── */
+.view{display:none}
+.view.active{display:block}
+.page-header{margin-bottom:24px}
+.page-header h2{font-family:var(--font-title);font-size:22px;color:var(--gold2);letter-spacing:1px;font-weight:600}
+.page-header p{font-size:14px;color:var(--text2);margin-top:4px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card-title{font-family:var(--font-title);font-size:13px;letter-spacing:1px;color:var(--gold);margin-bottom:12px;font-weight:600}
+
+/* ── FORMS ── */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-row.triple{grid-template-columns:1fr 1fr 1fr}
+.form-row.single{grid-template-columns:1fr}
+.form-group{display:flex;flex-direction:column;gap:4px}
+label{font-size:12px;color:var(--text2);font-family:var(--font-mono);letter-spacing:.5px}
+input,select,textarea{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 10px;font-family:var(--font-body);font-size:14px;transition:border .15s;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,168,76,.15)}
+textarea{resize:vertical;min-height:80px;line-height:1.5}
+select option{background:var(--bg3)}
+.color-input-wrap{display:flex;gap:8px;align-items:center}
+.color-input-wrap input[type=color]{width:40px;height:34px;padding:2px 3px;cursor:pointer;border-radius:4px}
+.color-input-wrap input[type=text]{flex:1}
+
+/* ── TIMELINE ── */
+#timeline-container{position:relative;overflow-x:auto;overflow-y:visible;padding-bottom:20px;min-height:200px}
+.timeline-axis{position:relative;height:60px;min-width:100%}
+.era-band{position:absolute;top:0;height:24px;border-radius:3px;cursor:pointer;transition:opacity .15s;border:1px solid rgba(255,255,255,.1)}
+.era-band:hover{opacity:.85;filter:brightness(1.1)}
+.era-band span{position:absolute;left:6px;top:50%;transform:translateY(-50%);font-size:11px;font-family:var(--font-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 12px);color:#fff;letter-spacing:.5px}
+.year-ruler{position:absolute;top:30px;left:0;right:0;height:30px}
+.year-tick{position:absolute;top:0;display:flex;flex-direction:column;align-items:center}
+.year-tick .tick-line{width:1px;height:8px;background:var(--border2)}
+.year-tick .tick-label{font-size:10px;color:var(--text3);font-family:var(--font-mono);margin-top:2px;transform:translateX(-50%)}
+.timeline-events{position:relative;min-height:60px;margin-top:4px}
+.event-dot{position:absolute;top:20px;width:10px;height:10px;border-radius:50%;border:2px solid var(--bg2);cursor:pointer;transform:translateX(-50%);transition:transform .15s}
+.event-dot:hover{transform:translateX(-50%) scale(1.4)}
+.event-dot .ev-tooltip{display:none;position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border2);border-radius:4px;padding:6px 10px;white-space:nowrap;font-size:12px;z-index:10;pointer-events:none}
+.event-dot:hover .ev-tooltip{display:block}
+.char-bar{position:absolute;height:6px;border-radius:3px;cursor:pointer;top:0;transition:opacity .15s}
+.char-bar:hover{opacity:.8;filter:brightness(1.2)}
+.char-bar .cb-tooltip{display:none;position:absolute;top:-28px;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid var(--border2);border-radius:4px;padding:4px 8px;white-space:nowrap;font-size:11px;z-index:10;pointer-events:none}
+.char-bar:hover .cb-tooltip{display:block}
+.tl-section-label{font-family:var(--font-mono);font-size:10px;color:var(--text3);letter-spacing:1px;margin:8px 0 4px;text-transform:uppercase}
+
+/* ── MAP EDITOR ── */
+#map-editor{display:flex;gap:12px;height:calc(100vh - 130px)}
+#map-canvas-wrap{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;position:relative;cursor:crosshair}
+#map-canvas{display:block}
+#map-tools{width:200px;display:flex;flex-direction:column;gap:8px}
+.tool-btn{padding:8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px;font-family:var(--font-mono);text-align:center;transition:all .15s;letter-spacing:.5px}
+.tool-btn:hover,.tool-btn.active{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.08)}
+
+/* ── GRID / ITEMS ── */
+.items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.item-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:all .15s;position:relative}
+.item-card:hover{border-color:var(--border2);background:var(--bg3);transform:translateY(-1px)}
+.item-card .item-title{font-family:var(--font-title);font-size:14px;color:var(--gold2);margin-bottom:4px;letter-spacing:.5px}
+.item-card .item-meta{font-size:12px;color:var(--text2);margin-bottom:6px;font-family:var(--font-mono)}
+.item-card .item-desc{font-size:13px;color:var(--text2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.item-card .item-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.tag{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-family:var(--font-mono);letter-spacing:.5px;border:1px solid}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);width:min(720px,96vw);max-height:90vh;overflow-y:auto;box-shadow:var(--shadow)}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-header h3{font-family:var(--font-title);font-size:16px;color:var(--gold2);letter-spacing:1px}
+.modal-body{padding:20px}
+.modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.close-btn{background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;line-height:1;padding:2px}
+.close-btn:hover{color:var(--crimson)}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px}
+.tab{padding:8px 16px;cursor:pointer;font-size:13px;color:var(--text2);border-bottom:2px solid transparent;transition:all .15s;font-family:var(--font-body)}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+
+/* ── CALENDAR ── */
+.calendar-grid{display:grid;gap:8px}
+.month-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
+.month-name{font-family:var(--font-title);font-size:13px;color:var(--gold);letter-spacing:1px;margin-bottom:6px}
+.day-count{font-size:12px;color:var(--text2);font-family:var(--font-mono)}
+
+/* ── CHARACTER VIEW ── */
+.char-detail{display:grid;grid-template-columns:200px 1fr;gap:16px}
+.char-portrait{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;font-size:48px}
+.char-info .char-name{font-family:var(--font-title);font-size:24px;color:var(--gold2);letter-spacing:1px;margin-bottom:4px}
+.char-info .char-sub{font-size:14px;color:var(--text2);margin-bottom:12px}
+.char-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.life-bar{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px}
+.life-bar label{color:var(--text2);width:60px}
+.life-bar span{color:var(--teal);font-family:var(--font-mono)}
+
+/* ── NOTIFICATIONS ── */
+#toast{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast-msg{background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius);padding:10px 16px;font-size:13px;animation:fadeIn .2s;max-width:280px}
+.toast-msg.success{border-color:var(--teal)}
+.toast-msg.error{border-color:var(--crimson);color:var(--crimson)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── MISC ── */
+.empty-state{text-align:center;padding:48px 20px;color:var(--text3)}
+.empty-state .empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.empty-state p{font-size:14px;margin-bottom:16px}
+hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-family:var(--font-mono);background:rgba(201,168,76,.15);color:var(--gold);border:1px solid rgba(201,168,76,.3)}
+.flex{display:flex;align-items:center;gap:8px}
+.flex-wrap{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mt-8{margin-top:8px}
+.mt-16{margin-top:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.search-bar{flex:1;max-width:340px}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <span>🌍</span>
+    <h1>WORLDFORGE</h1>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-label">Mundo</div>
+    <div class="nav-item active" onclick="showView('dashboard')"><span class="icon">◈</span>Dashboard</div>
+    <div class="nav-item" onclick="showView('calendar')"><span class="icon">◷</span>Calendário</div>
+    <div class="nav-item" onclick="showView('tags')"><span class="icon">◇</span>Tags & Raças</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-label">Histórico</div>
+    <div class="nav-item" onclick="showView('timeline')"><span class="icon">▷</span>Linha do Tempo</div>
+    <div class="nav-item" onclick="showView('eras')"><span class="icon">◉</span>Eras</div>
+    <div class="nav-item" onclick="showView('events')"><span class="icon">◆</span>Eventos</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-label">Entidades</div>
+    <div class="nav-item" onclick="showView('characters')"><span class="icon">◐</span>Personagens</div>
+    <div class="nav-item" onclick="showView('locations')"><span class="icon">⬡</span>Locais</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-section-label">Mapa</div>
+    <div class="nav-item" onclick="showView('map')"><span class="icon">⊕</span>Editor de Mapa</div>
+  </div>
+  <div class="nav-section" style="margin-top:auto">
+    <div class="nav-item" onclick="exportWorld()"><span class="icon">↓</span>Exportar .world</div>
+    <div class="nav-item" onclick="triggerImport()"><span class="icon">↑</span>Importar .world</div>
+    <div class="nav-item" onclick="saveToDrive()"><span class="icon">☁</span>Salvar no Drive</div>
+  </div>
+</nav>
+
+<!-- Hidden file input for import -->
+<input type="file" id="import-file-input" accept=".world,application/json" style="display:none" onchange="importWorld(event)">
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <span class="world-name" id="world-name-display">Sem Título</span>
+    <span class="sep">/</span>
+    <span class="page-name" id="page-name-display">Dashboard</span>
+    <div class="ml-auto flex">
+      <button class="btn sm" onclick="openModal('worldSettingsModal')">⚙ Configurar Mundo</button>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view active">
+      <div class="page-header">
+        <h2>Dashboard</h2>
+        <p>Visão geral do seu mundo</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+        <div class="card" style="text-align:center">
+          <div style="font-size:28px;font-family:var(--font-title);color:var(--gold)" id="stat-eras">0</div>
+          <div style="font-size:12px;color:var(--text2);font-family:var(--font-mono);margin-top:4px">ERAS</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div style="font-size:28px;font-family:var(--font-title);color:var(--teal)" id="stat-events">0</div>
+          <div style="font-size:12px;color:var(--text2);font-family:var(--font-mono);margin-top:4px">EVENTOS</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div style="font-size:28px;font-family:var(--font-title);color:var(--violet2)" id="stat-chars">0</div>
+          <div style="font-size:12px;color:var(--text2);font-family:var(--font-mono);margin-top:4px">PERSONAGENS</div>
+        </div>
+        <div class="card" style="text-align:center">
+          <div style="font-size:28px;font-family:var(--font-title);color:var(--crimson)" id="stat-locs">0</div>
+          <div style="font-size:12px;color:var(--text2);font-family:var(--font-mono);margin-top:4px">LOCAIS</div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">Eras recentes</div>
+          <div id="dash-eras"><div class="empty-state" style="padding:16px"><p>Nenhuma era criada</p></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Personagens recentes</div>
+          <div id="dash-chars"><div class="empty-state" style="padding:16px"><p>Nenhum personagem criado</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div id="view-calendar" class="view">
+      <div class="page-header">
+        <h2>Calendário Personalizado</h2>
+        <p>Configure os anos, meses e a estrutura temporal do seu mundo</p>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">Configuração do Calendário</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nome do calendário</label>
+            <input type="text" id="cal-name" value="Calendário do Mundo" oninput="saveCalendar()">
+          </div>
+          <div class="form-group">
+            <label>Ano inicial da história</label>
+            <input type="number" id="cal-start" value="1" oninput="saveCalendar()">
+          </div>
+          <div class="form-group">
+            <label>Sufixo do ano (ex: DC, AE)</label>
+            <input type="text" id="cal-suffix" value="AE" oninput="saveCalendar()">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Meses</div>
+        <div id="months-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+        <button class="btn sm" onclick="addMonth()">+ Adicionar Mês</button>
+      </div>
+    </div>
+
+    <!-- TAGS -->
+    <div id="view-tags" class="view">
+      <div class="page-header">
+        <h2>Tags, Raças & Cargos</h2>
+        <p>Crie e gerencie categorias para personagens e locais</p>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">Raças</div>
+          <div id="races-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+          <button class="btn sm" onclick="openTagModal('race')">+ Adicionar Raça</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Cargos & Títulos</div>
+          <div id="roles-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+          <button class="btn sm" onclick="openTagModal('role')">+ Adicionar Cargo</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Tags de Eventos</div>
+          <div id="event-tags-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+          <button class="btn sm" onclick="openTagModal('event-tag')">+ Adicionar Tag</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Tipos de Local</div>
+          <div id="loc-types-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px"></div>
+          <button class="btn sm" onclick="openTagModal('loc-type')">+ Adicionar Tipo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div id="view-timeline" class="view">
+      <div class="page-header flex">
+        <div>
+          <h2>Linha do Tempo</h2>
+          <p>Visualização temporal de eras, eventos e personagens</p>
+        </div>
+        <div class="ml-auto flex">
+          <label style="font-size:12px;color:var(--text2);font-family:var(--font-mono)">Zoom</label>
+          <input type="range" min="1" max="10" value="3" id="tl-zoom" style="width:100px" oninput="renderTimeline()">
+        </div>
+      </div>
+      <div id="timeline-container">
+        <div class="tl-section-label">Eras</div>
+        <div id="tl-eras" class="timeline-axis"></div>
+        <div class="tl-section-label" style="margin-top:16px">Eventos</div>
+        <div id="tl-events" class="timeline-events"></div>
+        <div class="tl-section-label" style="margin-top:16px">Personagens</div>
+        <div id="tl-chars" class="timeline-events" style="height:auto;min-height:60px"></div>
+      </div>
+    </div>
+
+    <!-- ERAS -->
+    <div id="view-eras" class="view">
+      <div class="page-header flex">
+        <div><h2>Eras</h2><p>Períodos históricos do seu mundo</p></div>
+        <button class="btn primary ml-auto" onclick="openModal('eraModal')">+ Nova Era</button>
+      </div>
+      <div id="eras-grid" class="items-grid"></div>
+    </div>
+
+    <!-- EVENTS -->
+    <div id="view-events" class="view">
+      <div class="page-header flex">
+        <div><h2>Eventos</h2><p>Acontecimentos históricos marcantes</p></div>
+        <div class="ml-auto flex">
+          <input class="search-bar" type="text" placeholder="Buscar eventos..." id="search-events" oninput="filterEvents()">
+          <button class="btn primary" onclick="openModal('eventModal')">+ Novo Evento</button>
+        </div>
+      </div>
+      <div id="events-grid" class="items-grid"></div>
+    </div>
+
+    <!-- CHARACTERS -->
+    <div id="view-characters" class="view">
+      <div class="page-header flex">
+        <div><h2>Personagens</h2><p>Seres e figuras do seu mundo</p></div>
+        <div class="ml-auto flex">
+          <input class="search-bar" type="text" placeholder="Buscar personagens..." id="search-chars" oninput="filterChars()">
+          <button class="btn primary" onclick="openModal('charModal')">+ Novo Personagem</button>
+        </div>
+      </div>
+      <div id="chars-grid" class="items-grid"></div>
+    </div>
+
+    <!-- LOCATIONS -->
+    <div id="view-locations" class="view">
+      <div class="page-header flex">
+        <div><h2>Locais</h2><p>Reinos, países, cidades e regiões</p></div>
+        <button class="btn primary ml-auto" onclick="openModal('locModal')">+ Novo Local</button>
+      </div>
+      <div id="locs-grid" class="items-grid"></div>
+    </div>
+
+    <!-- MAP -->
+    <div id="view-map" class="view">
+      <div class="page-header flex" style="margin-bottom:12px">
+        <div><h2>Editor de Mapa</h2><p>Pinte em camadas: continente → reino → região → cidade</p></div>
+      </div>
+      <div id="map-editor">
+        <div id="map-tools" style="overflow-y:auto">
+          <div class="card-title">Camadas</div>
+
+          <div class="tool-btn active" id="tool-continent" onclick="setTool('continent')" style="display:flex;align-items:center;gap:6px">
+            <span style="width:12px;height:12px;border-radius:2px;background:#4a7c4e;border:1px solid #6aab70;flex-shrink:0"></span>CONTINENTE
+          </div>
+          <div style="font-size:10px;color:var(--text3);font-family:var(--font-mono);padding:2px 4px 4px;line-height:1.4">Verde padrão · preenchimento sólido</div>
+
+          <div class="tool-btn" id="tool-country" onclick="setTool('country')" style="display:flex;align-items:center;gap:6px">
+            <span style="width:12px;height:12px;border-radius:2px;background:transparent;border:2px solid #c9a84c;flex-shrink:0"></span>REINO/PAÍS
+          </div>
+          <div style="font-size:10px;color:var(--text3);font-family:var(--font-mono);padding:2px 4px 4px;line-height:1.4">Sobre-contorno espesso colorido</div>
+
+          <div class="tool-btn" id="tool-region" onclick="setTool('region')" style="display:flex;align-items:center;gap:6px">
+            <span style="width:12px;height:12px;border-radius:2px;background:transparent;border:1px dashed #7c6fc9;flex-shrink:0"></span>REGIÃO
+          </div>
+          <div style="font-size:10px;color:var(--text3);font-family:var(--font-mono);padding:2px 4px 4px;line-height:1.4">Contorno tracejado fino</div>
+
+          <div class="tool-btn" id="tool-city" onclick="setTool('city')" style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px">🏙</span>CIDADE
+          </div>
+          <div style="font-size:10px;color:var(--text3);font-family:var(--font-mono);padding:2px 4px 4px;line-height:1.4">Emoji centralizado na célula</div>
+
+          <div class="tool-btn" id="tool-erase" onclick="setTool('erase')" style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px">🗑</span>APAGAR
+          </div>
+          <div class="tool-btn" id="tool-select" onclick="setTool('select')" style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px">⊹</span>SELECIONAR
+          </div>
+
+          <hr class="divider">
+
+          <div id="color-section">
+            <div class="card-title">Cor da camada</div>
+            <div class="color-input-wrap">
+              <input type="color" id="map-color" value="#4a7c4e">
+              <input type="text" id="map-color-hex" value="#4a7c4e" style="width:76px;font-family:var(--font-mono);font-size:12px" oninput="syncColor(this.value)">
+            </div>
+          </div>
+
+          <div id="city-emoji-section" style="display:none">
+            <div class="card-title">Emoji da cidade</div>
+            <input type="text" id="city-emoji-input" value="🏙" maxlength="4" style="font-size:20px;text-align:center;width:60px">
+          </div>
+
+          <hr class="divider">
+          <div class="card-title">Grade</div>
+          <select id="grid-size" onchange="changeGridSize()">
+            <option value="20">20px — fino</option>
+            <option value="28" selected>28px — padrão</option>
+            <option value="40">40px — largo</option>
+            <option value="56">56px — cidade</option>
+          </select>
+
+          <hr class="divider">
+          <div style="display:flex;gap:6px;flex-direction:column">
+            <button class="btn sm" onclick="clearMapLayer()">🗑 Limpar camada</button>
+            <button class="btn sm" onclick="clearMap()">⚠ Limpar tudo</button>
+            <button class="btn sm" onclick="openModal('mapCellModal')">✏ Editar célula</button>
+          </div>
+
+          <hr class="divider">
+          <div class="card-title">Locais → cor</div>
+          <div id="map-loc-list" style="font-size:12px;max-height:160px;overflow-y:auto"></div>
+        </div>
+        <div id="map-canvas-wrap">
+          <canvas id="map-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════
+     MODALS
+═══════════════════════════════════════ -->
+
+<!-- World Settings -->
+<div class="modal-overlay" id="worldSettingsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Configurações do Mundo</h3>
+      <button class="close-btn" onclick="closeModal('worldSettingsModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row single">
+        <div class="form-group">
+          <label>Nome do Mundo</label>
+          <input type="text" id="world-name-input" placeholder="Ex: Aethoria">
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label>Descrição / Sinopse</label>
+          <textarea id="world-desc" rows="4" placeholder="Descreva seu mundo..."></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Gênero</label>
+          <select id="world-genre">
+            <option>Fantasia</option>
+            <option>Sci-Fi</option>
+            <option>Histórico</option>
+            <option>Horror</option>
+            <option>Steampunk</option>
+            <option>Mitologia</option>
+            <option>Outro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Escala temporal</label>
+          <select id="world-scale">
+            <option value="1">Anos</option>
+            <option value="10">Décadas</option>
+            <option value="100">Séculos</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('worldSettingsModal')">Cancelar</button>
+      <button class="btn primary" onclick="saveWorldSettings()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Era Modal -->
+<div class="modal-overlay" id="eraModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="era-modal-title">Nova Era</h3>
+      <button class="close-btn" onclick="closeModal('eraModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row single">
+        <div class="form-group">
+          <label>Nome da Era</label>
+          <input type="text" id="era-name" placeholder="Ex: Era das Trevas">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ano inicial</label>
+          <input type="number" id="era-start" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Ano final</label>
+          <input type="number" id="era-end" placeholder="500">
+        </div>
+        <div class="form-group">
+          <label>Cor</label>
+          <div class="color-input-wrap">
+            <input type="color" id="era-color" value="#c9a84c">
+          </div>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label>Descrição</label>
+          <textarea id="era-desc" rows="3" placeholder="Descreva essa era..."></textarea>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label>Detalhes & Lore</label>
+          <textarea id="era-lore" rows="5" placeholder="Detalhes históricos, eventos marcantes, estrutura social..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('eraModal')">Cancelar</button>
+      <button class="btn primary" onclick="saveEra()">Salvar Era</button>
+    </div>
+  </div>
+</div>
+
+<!-- Event Modal -->
+<div class="modal-overlay" id="eventModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="event-modal-title">Novo Evento</h3>
+      <button class="close-btn" onclick="closeModal('eventModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row single">
+        <div class="form-group">
+          <label>Nome do Evento</label>
+          <input type="text" id="ev-name" placeholder="Ex: Batalha da Névoa Eterna">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Ano</label>
+          <input type="number" id="ev-year" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>Mês</label>
+          <select id="ev-month"></select>
+        </div>
+        <div class="form-group">
+          <label>Importância</label>
+          <select id="ev-importance">
+            <option value="low">Menor</option>
+            <option value="medium" selected>Médio</option>
+            <option value="high">Importante</option>
+            <option value="critical">Crítico</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cor</label>
+          <div class="color-input-wrap">
+            <input type="color" id="ev-color" value="#4ecdc4">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Tags</label>
+          <input type="text" id="ev-tags" placeholder="guerra, magia, político (separar por vírgula)">
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label>Descrição</label>
+          <textarea id="ev-desc" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label>Detalhes & Consequências</label>
+          <textarea id="ev-lore" rows="5" placeholder="Causas, desenrolar, consequências históricas..."></textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Local relacionado</label>
+          <select id="ev-location">
+            <option value="">— Nenhum —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Era relacionada</label>
+          <select id="ev-era">
+            <option value="">— Nenhuma —</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('eventModal')">Cancelar</button>
+      <button class="btn primary" onclick="saveEvent()">Salvar Evento</button>
+    </div>
+  </div>
+</div>
+
+<!-- Character Modal -->
+<div class="modal-overlay" id="charModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="char-modal-title">Novo Personagem</h3>
+      <button class="close-btn" onclick="closeModal('charModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(event,'char','info')">Informações</div>
+        <div class="tab" onclick="switchTab(event,'char','lore')">Lore</div>
+        <div class="tab" onclick="switchTab(event,'char','relations')">Relações</div>
+      </div>
+      <div id="char-tab-info">
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Nome completo</label>
+            <input type="text" id="char-name" placeholder="Ex: Aldric Vorn">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Título / Epíteto</label>
+            <input type="text" id="char-title" placeholder="O Sombrio, Rei de...">
+          </div>
+          <div class="form-group">
+            <label>Emoji / ícone</label>
+            <input type="text" id="char-icon" placeholder="👑" maxlength="4">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Raça</label>
+            <select id="char-race"></select>
+          </div>
+          <div class="form-group">
+            <label>Cargo principal</label>
+            <select id="char-role"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Ano de nascimento</label>
+            <input type="number" id="char-birth" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>Ano de morte (vazio = vivo)</label>
+            <input type="number" id="char-death" placeholder="">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Cor da barra na timeline</label>
+            <div class="color-input-wrap">
+              <input type="color" id="char-color" value="#7c6fc9">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Local de origem</label>
+            <select id="char-origin"></select>
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Tags adicionais (vírgula)</label>
+            <input type="text" id="char-tags" placeholder="herói, morto, antigo...">
+          </div>
+        </div>
+      </div>
+      <div id="char-tab-lore" style="display:none">
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Descrição física</label>
+            <textarea id="char-physical" rows="3" placeholder="Aparência, traços físicos notáveis..."></textarea>
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Personalidade</label>
+            <textarea id="char-personality" rows="3" placeholder="Caráter, motivações, medos..."></textarea>
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>História & Lore</label>
+            <textarea id="char-lore" rows="6" placeholder="Biografia completa, eventos importantes da vida..."></textarea>
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Habilidades & Poderes</label>
+            <textarea id="char-abilities" rows="3" placeholder="Magia, habilidades especiais, fraquezas..."></textarea>
+          </div>
+        </div>
+      </div>
+      <div id="char-tab-relations" style="display:none">
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Aliados (separar por vírgula)</label>
+            <input type="text" id="char-allies" placeholder="Aldric, Seraphina...">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Inimigos (separar por vírgula)</label>
+            <input type="text" id="char-enemies" placeholder="">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Notas de relações</label>
+            <textarea id="char-rel-notes" rows="4"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('charModal')">Cancelar</button>
+      <button class="btn primary" onclick="saveCharacter()">Salvar Personagem</button>
+    </div>
+  </div>
+</div>
+
+<!-- Location Modal -->
+<div class="modal-overlay" id="locModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="loc-modal-title">Novo Local</h3>
+      <button class="close-btn" onclick="closeModal('locModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(event,'loc','info')">Informações</div>
+        <div class="tab" onclick="switchTab(event,'loc','detail')">Detalhes</div>
+      </div>
+      <div id="loc-tab-info">
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Nome do local</label>
+            <input type="text" id="loc-name" placeholder="Ex: Reino de Valdris">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tipo</label>
+            <select id="loc-type">
+              <option>Planeta</option>
+              <option>Continente</option>
+              <option>País/Reino</option>
+              <option>Região</option>
+              <option>Cidade</option>
+              <option>Vilarejo</option>
+              <option>Floresta</option>
+              <option>Montanha</option>
+              <option>Mar/Oceano</option>
+              <option>Outro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Pai (pertence a)</label>
+            <select id="loc-parent">
+              <option value="">— Nenhum (raiz) —</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Cor no mapa</label>
+            <div class="color-input-wrap">
+              <input type="color" id="loc-color" value="#4ecdc4">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Ícone / emoji</label>
+            <input type="text" id="loc-icon" placeholder="🏰" maxlength="4">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Descrição</label>
+            <textarea id="loc-desc" rows="3"></textarea>
+          </div>
+        </div>
+      </div>
+      <div id="loc-tab-detail" style="display:none">
+        <div class="form-row single">
+          <div class="form-group">
+            <label>História & Lore</label>
+            <textarea id="loc-lore" rows="5" placeholder="Origem, história, mitos locais..."></textarea>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>População aproximada</label>
+            <input type="text" id="loc-pop" placeholder="500.000">
+          </div>
+          <div class="form-group">
+            <label>Língua principal</label>
+            <input type="text" id="loc-lang" placeholder="Valdrínico">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Governo / Sistema político</label>
+            <input type="text" id="loc-gov" placeholder="Monarquia absoluta">
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Recursos / Economia</label>
+            <textarea id="loc-economy" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="form-row single">
+          <div class="form-group">
+            <label>Notas adicionais</label>
+            <textarea id="loc-notes" rows="3"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('locModal')">Cancelar</button>
+      <button class="btn primary" onclick="saveLocation()">Salvar Local</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tag Modal -->
+<div class="modal-overlay" id="tagModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <h3 id="tag-modal-title">Nova Tag</h3>
+      <button class="close-btn" onclick="closeModal('tagModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Nome</label>
+        <input type="text" id="tag-name" placeholder="Ex: Élfico">
+      </div>
+      <div class="form-group">
+        <label>Cor</label>
+        <div class="color-input-wrap">
+          <input type="color" id="tag-color" value="#7c6fc9">
+          <input type="text" id="tag-color-hex" value="#7c6fc9" oninput="document.getElementById('tag-color').value=this.value">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('tagModal')">Cancelar</button>
+      <button class="btn primary" onclick="saveTag()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Map Cell Modal -->
+<div class="modal-overlay" id="mapCellModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3>Editar Célula do Mapa</h3>
+      <button class="close-btn" onclick="closeModal('mapCellModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Use <strong>Selecionar</strong> e clique em uma célula no mapa, depois abra este painel.</p>
+      <div id="cell-edit-panel">
+        <div style="font-size:13px;color:var(--text3)">Nenhuma célula selecionada.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('mapCellModal')">Fechar</button>
+      <button class="btn primary" onclick="applyMapCellEdit()">Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail View Modal (read) -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="detail-title">Detalhes</h3>
+      <button class="close-btn" onclick="closeModal('detailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn danger" id="detail-delete-btn">🗑 Excluir</button>
+      <button class="btn" id="detail-edit-btn">✏ Editar</button>
+      <button class="btn primary" onclick="closeModal('detailModal')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let world = {
+  name: 'Sem Título',
+  desc: '',
+  genre: 'Fantasia',
+  scale: 1,
+  calendar: { name: 'Calendário do Mundo', start: 1, suffix: 'AE', months: [
+    {id:uid(),name:'Primórdio',days:30},{id:uid(),name:'Florescer',days:28},
+    {id:uid(),name:'Ardência',days:31},{id:uid(),name:'Colheita',days:30},
+    {id:uid(),name:'Sombra',days:29},{id:uid(),name:'Gelo',days:31}
+  ]},
+  eras: [],
+  events: [],
+  characters: [],
+  locations: [],
+  tags: { races:[], roles:[], eventTags:[], locTypes:[] },
+  map: { cells:{}, gridSize:28 }
+};
+
+let editingId = null;
+let currentTagType = null;
+let mapTool = 'continent';
+let mapDrawing = false;
+let selectedCell = null;
+
+function uid(){ return Math.random().toString(36).slice(2,9) }
+function clone(o){ return JSON.parse(JSON.stringify(o)) }
+
+// ═══════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  const map = {dashboard:'Dashboard',calendar:'Calendário',tags:'Tags & Raças',timeline:'Linha do Tempo',eras:'Eras',events:'Eventos',characters:'Personagens',locations:'Locais',map:'Editor de Mapa'};
+  document.getElementById('page-name-display').textContent = map[name]||name;
+  const items = document.querySelectorAll('.nav-item');
+  items.forEach(item=>{if(item.textContent.trim().includes(map[name]?.split(' ')[0]||''))item.classList.add('active')});
+  if(name==='timeline') renderTimeline();
+  if(name==='map') initMapCanvas();
+  if(name==='dashboard') renderDashboard();
+  renderAll();
+}
+
+// ═══════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════
+function openModal(id){
+  if(id==='eraModal'){ editingId=null; clearEraForm(); populateEraRelations(); }
+  if(id==='eventModal'){ editingId=null; clearEventForm(); populateEventRelations(); }
+  if(id==='charModal'){ editingId=null; clearCharForm(); populateCharSelects(); }
+  if(id==='locModal'){ editingId=null; clearLocForm(); populateLocSelects(); }
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+  editingId=null;
+}
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')});
+});
+
+// ═══════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════
+function switchTab(e, prefix, tab){
+  const modal = e.target.closest('.modal');
+  modal.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  e.target.classList.add('active');
+  modal.querySelectorAll(`[id^="${prefix}-tab-"]`).forEach(p=>p.style.display='none');
+  document.getElementById(`${prefix}-tab-${tab}`).style.display='block';
+}
+
+// ═══════════════════════════════════════
+// WORLD SETTINGS
+// ═══════════════════════════════════════
+function saveWorldSettings(){
+  world.name = document.getElementById('world-name-input').value || 'Sem Título';
+  world.desc = document.getElementById('world-desc').value;
+  world.genre = document.getElementById('world-genre').value;
+  world.scale = +document.getElementById('world-scale').value;
+  document.getElementById('world-name-display').textContent = world.name;
+  closeModal('worldSettingsModal');
+  toast('Configurações salvas!','success');
+}
+document.getElementById('worldSettingsModal').querySelector('.modal').addEventListener('click',e=>e.stopPropagation());
+
+// ═══════════════════════════════════════
+// CALENDAR
+// ═══════════════════════════════════════
+function saveCalendar(){
+  world.calendar.name = document.getElementById('cal-name').value;
+  world.calendar.start = +document.getElementById('cal-start').value||1;
+  world.calendar.suffix = document.getElementById('cal-suffix').value;
+}
+function renderCalendar(){
+  const cal = world.calendar;
+  document.getElementById('cal-name').value = cal.name;
+  document.getElementById('cal-start').value = cal.start;
+  document.getElementById('cal-suffix').value = cal.suffix;
+  const list = document.getElementById('months-list');
+  list.innerHTML = '';
+  cal.months.forEach((m,i)=>{
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;align-items:center';
+    row.innerHTML = `
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--text3);width:20px">${i+1}.</span>
+      <input type="text" value="${m.name}" style="flex:1" oninput="world.calendar.months[${i}].name=this.value">
+      <input type="number" value="${m.days}" style="width:70px" oninput="world.calendar.months[${i}].days=+this.value" min="1" max="99">
+      <span style="font-size:12px;color:var(--text3)">dias</span>
+      <button class="btn sm danger" onclick="removeMonth(${i})">✕</button>
+    `;
+    list.appendChild(row);
+  });
+}
+function addMonth(){
+  world.calendar.months.push({id:uid(),name:'Novo Mês',days:30});
+  renderCalendar();
+}
+function removeMonth(i){
+  world.calendar.months.splice(i,1);
+  renderCalendar();
+}
+
+// ═══════════════════════════════════════
+// TAGS
+// ═══════════════════════════════════════
+function openTagModal(type){
+  currentTagType=type;
+  const titles={race:'Nova Raça',role:'Novo Cargo',['event-tag']:'Nova Tag de Evento',['loc-type']:'Novo Tipo de Local'};
+  document.getElementById('tag-modal-title').textContent = titles[type];
+  document.getElementById('tag-name').value='';
+  document.getElementById('tag-color').value='#7c6fc9';
+  openModal('tagModal');
+}
+function saveTag(){
+  const name=document.getElementById('tag-name').value.trim();
+  if(!name)return toast('Nome obrigatório','error');
+  const color=document.getElementById('tag-color').value;
+  const tag={id:uid(),name,color};
+  const map={race:'races',role:'roles','event-tag':'eventTags','loc-type':'locTypes'};
+  world.tags[map[currentTagType]].push(tag);
+  closeModal('tagModal');
+  renderTags();
+  toast('Tag criada!','success');
+}
+function renderTags(){
+  const renderList=(key,elId)=>{
+    const el=document.getElementById(elId);
+    if(!el)return;
+    const arr=world.tags[key];
+    if(!arr.length){el.innerHTML='<div style="font-size:13px;color:var(--text3)">Nenhuma criada</div>';return;}
+    el.innerHTML=arr.map(t=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:6px;background:var(--bg3);border-radius:4px;border:1px solid var(--border)">
+        <span style="width:12px;height:12px;border-radius:2px;background:${t.color};flex-shrink:0;display:inline-block"></span>
+        <span style="flex:1;font-size:13px">${t.name}</span>
+        <button class="btn sm danger" onclick="deleteTag('${key}','${t.id}')">✕</button>
+      </div>
+    `).join('');
+  };
+  renderList('races','races-list');
+  renderList('roles','roles-list');
+  renderList('eventTags','event-tags-list');
+  renderList('locTypes','loc-types-list');
+}
+function deleteTag(key,id){
+  world.tags[key]=world.tags[key].filter(t=>t.id!==id);
+  renderTags();
+}
+
+// ═══════════════════════════════════════
+// ERAS
+// ═══════════════════════════════════════
+function clearEraForm(){
+  ['era-name','era-desc','era-lore'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('era-start').value='';
+  document.getElementById('era-end').value='';
+  document.getElementById('era-color').value='#c9a84c';
+  document.getElementById('era-modal-title').textContent='Nova Era';
+}
+function populateEraRelations(){}
+function saveEra(){
+  const name=document.getElementById('era-name').value.trim();
+  if(!name)return toast('Nome obrigatório','error');
+  const era={
+    id: editingId||uid(),
+    name, color:document.getElementById('era-color').value,
+    start:+document.getElementById('era-start').value||0,
+    end:+document.getElementById('era-end').value||0,
+    desc:document.getElementById('era-desc').value,
+    lore:document.getElementById('era-lore').value
+  };
+  if(editingId){const i=world.eras.findIndex(e=>e.id===editingId);world.eras[i]=era;}
+  else world.eras.push(era);
+  closeModal('eraModal'); renderEras(); renderDashboard();
+  toast(editingId?'Era atualizada!':'Era criada!','success');
+}
+function renderEras(){
+  const el=document.getElementById('eras-grid');
+  if(!world.eras.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">◉</div><p>Nenhuma era criada ainda</p></div>';return;}
+  el.innerHTML=world.eras.map(e=>`
+    <div class="item-card" onclick="showDetail('era','${e.id}')">
+      <div style="width:100%;height:4px;border-radius:2px;background:${e.color};margin-bottom:10px"></div>
+      <div class="item-title">${e.name}</div>
+      <div class="item-meta">${fmt(e.start)} → ${fmt(e.end)}</div>
+      <div class="item-desc">${e.desc||'Sem descrição'}</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════
+function clearEventForm(){
+  ['ev-name','ev-year','ev-tags','ev-desc','ev-lore'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ev-color').value='#4ecdc4';
+  document.getElementById('ev-importance').value='medium';
+  document.getElementById('event-modal-title').textContent='Novo Evento';
+}
+function populateEventRelations(){
+  const ms=document.getElementById('ev-month');
+  ms.innerHTML='<option value="">—</option>'+world.calendar.months.map((m,i)=>`<option value="${i}">${m.name}</option>`).join('');
+  const ls=document.getElementById('ev-location');
+  ls.innerHTML='<option value="">— Nenhum —</option>'+world.locations.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
+  const es=document.getElementById('ev-era');
+  es.innerHTML='<option value="">— Nenhuma —</option>'+world.eras.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+}
+function saveEvent(){
+  const name=document.getElementById('ev-name').value.trim();
+  if(!name)return toast('Nome obrigatório','error');
+  const ev={
+    id:editingId||uid(), name,
+    year:+document.getElementById('ev-year').value||0,
+    month:document.getElementById('ev-month').value,
+    importance:document.getElementById('ev-importance').value,
+    color:document.getElementById('ev-color').value,
+    tags:document.getElementById('ev-tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+    desc:document.getElementById('ev-desc').value,
+    lore:document.getElementById('ev-lore').value,
+    locationId:document.getElementById('ev-location').value,
+    eraId:document.getElementById('ev-era').value
+  };
+  if(editingId){const i=world.events.findIndex(e=>e.id===editingId);world.events[i]=ev;}
+  else world.events.push(ev);
+  closeModal('eventModal'); renderEvents();
+  toast(editingId?'Evento atualizado!':'Evento criado!','success');
+}
+function renderEvents(filter=''){
+  const el=document.getElementById('events-grid');
+  let arr=world.events;
+  if(filter)arr=arr.filter(e=>e.name.toLowerCase().includes(filter)||e.desc?.toLowerCase().includes(filter));
+  if(!arr.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">◆</div><p>Nenhum evento criado ainda</p></div>';return;}
+  const impColor={low:'var(--text3)',medium:'var(--teal)',high:'var(--gold)',critical:'var(--crimson)'};
+  el.innerHTML=arr.map(e=>`
+    <div class="item-card" onclick="showDetail('event','${e.id}')">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${e.color};flex-shrink:0"></span>
+        <div class="item-title" style="margin:0">${e.name}</div>
+        <span style="margin-left:auto;font-size:11px;color:${impColor[e.importance]};font-family:var(--font-mono)">${e.importance.toUpperCase()}</span>
+      </div>
+      <div class="item-meta">${fmt(e.year)}${e.month!==''?' · '+world.calendar.months[e.month]?.name:''}</div>
+      <div class="item-desc">${e.desc||'Sem descrição'}</div>
+      ${e.tags.length?'<div class="item-tags">'+e.tags.map(t=>`<span class="tag" style="border-color:${e.color};color:${e.color};background:transparent">${t}</span>`).join('')+'</div>':''}
+    </div>
+  `).join('');
+}
+function filterEvents(){ renderEvents(document.getElementById('search-events').value.toLowerCase()); }
+
+// ═══════════════════════════════════════
+// CHARACTERS
+// ═══════════════════════════════════════
+function clearCharForm(){
+  ['char-name','char-title','char-icon','char-tags','char-physical','char-personality','char-lore','char-abilities','char-allies','char-enemies','char-rel-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('char-birth').value='';
+  document.getElementById('char-death').value='';
+  document.getElementById('char-color').value='#7c6fc9';
+  document.getElementById('char-modal-title').textContent='Novo Personagem';
+  document.querySelector('#charModal .tab').click();
+}
+function populateCharSelects(){
+  const races=document.getElementById('char-race');
+  races.innerHTML='<option value="">— Sem raça —</option>'+world.tags.races.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  const roles=document.getElementById('char-role');
+  roles.innerHTML='<option value="">— Sem cargo —</option>'+world.tags.roles.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  const orig=document.getElementById('char-origin');
+  orig.innerHTML='<option value="">— Desconhecido —</option>'+world.locations.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
+}
+function saveCharacter(){
+  const name=document.getElementById('char-name').value.trim();
+  if(!name)return toast('Nome obrigatório','error');
+  const birthVal=document.getElementById('char-birth').value;
+  const deathVal=document.getElementById('char-death').value;
+  const ch={
+    id:editingId||uid(), name,
+    title:document.getElementById('char-title').value,
+    icon:document.getElementById('char-icon').value||'👤',
+    raceId:document.getElementById('char-race').value,
+    roleId:document.getElementById('char-role').value,
+    birth:birthVal!==''?+birthVal:null,
+    death:deathVal!==''?+deathVal:null,
+    color:document.getElementById('char-color').value,
+    originId:document.getElementById('char-origin').value,
+    tags:document.getElementById('char-tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+    physical:document.getElementById('char-physical').value,
+    personality:document.getElementById('char-personality').value,
+    lore:document.getElementById('char-lore').value,
+    abilities:document.getElementById('char-abilities').value,
+    allies:document.getElementById('char-allies').value,
+    enemies:document.getElementById('char-enemies').value,
+    relNotes:document.getElementById('char-rel-notes').value
+  };
+  if(editingId){const i=world.characters.findIndex(c=>c.id===editingId);world.characters[i]=ch;}
+  else world.characters.push(ch);
+  closeModal('charModal'); renderChars(); renderDashboard();
+  toast(editingId?'Personagem atualizado!':'Personagem criado!','success');
+}
+function renderChars(filter=''){
+  const el=document.getElementById('chars-grid');
+  let arr=world.characters;
+  if(filter)arr=arr.filter(c=>c.name.toLowerCase().includes(filter));
+  if(!arr.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">◐</div><p>Nenhum personagem criado ainda</p></div>';return;}
+  el.innerHTML=arr.map(c=>{
+    const race=world.tags.races.find(r=>r.id===c.raceId);
+    const role=world.tags.roles.find(r=>r.id===c.roleId);
+    const alive=c.death===null||c.death===undefined;
+    return `<div class="item-card" onclick="showDetail('character','${c.id}')">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:36px;height:36px;border-radius:50%;background:${c.color}22;border:1px solid ${c.color}55;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${c.icon}</div>
+        <div>
+          <div class="item-title" style="margin:0">${c.name}</div>
+          ${c.title?`<div style="font-size:12px;color:var(--text2);font-style:italic">${c.title}</div>`:''}
+        </div>
+        <span style="margin-left:auto;font-size:10px;font-family:var(--font-mono);color:${alive?'var(--teal)':'var(--text3)'};border:1px solid ${alive?'var(--teal)':'var(--border)'};padding:1px 5px;border-radius:3px">${alive?'VIVO':'†'}</span>
+      </div>
+      <div class="item-meta">
+        ${c.birth!==null?`Nasc. ${fmt(c.birth)}`:''} ${c.death!==null?` · Morte ${fmt(c.death)}`:''}
+      </div>
+      <div class="item-tags">
+        ${race?`<span class="tag" style="border-color:${race.color};color:${race.color}">${race.name}</span>`:''}
+        ${role?`<span class="tag" style="border-color:var(--gold);color:var(--gold)">${role.name}</span>`:''}
+        ${c.tags.map(t=>`<span class="tag" style="border-color:var(--border2);color:var(--text2)">${t}</span>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+function filterChars(){ renderChars(document.getElementById('search-chars').value.toLowerCase()); }
+
+// ═══════════════════════════════════════
+// LOCATIONS
+// ═══════════════════════════════════════
+function clearLocForm(){
+  ['loc-name','loc-desc','loc-lore','loc-pop','loc-lang','loc-gov','loc-economy','loc-notes','loc-icon'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('loc-color').value='#4ecdc4';
+  document.getElementById('loc-modal-title').textContent='Novo Local';
+  const firstTab=document.querySelector('#locModal .tab');
+  if(firstTab)firstTab.click();
+}
+function populateLocSelects(){
+  const parent=document.getElementById('loc-parent');
+  parent.innerHTML='<option value="">— Nenhum (raiz) —</option>'+world.locations.map(l=>`<option value="${l.id}">${l.name}</option>`).join('');
+}
+function saveLocation(){
+  const name=document.getElementById('loc-name').value.trim();
+  if(!name)return toast('Nome obrigatório','error');
+  const loc={
+    id:editingId||uid(), name,
+    type:document.getElementById('loc-type').value,
+    parentId:document.getElementById('loc-parent').value,
+    color:document.getElementById('loc-color').value,
+    icon:document.getElementById('loc-icon').value||'📍',
+    desc:document.getElementById('loc-desc').value,
+    lore:document.getElementById('loc-lore').value,
+    pop:document.getElementById('loc-pop').value,
+    lang:document.getElementById('loc-lang').value,
+    gov:document.getElementById('loc-gov').value,
+    economy:document.getElementById('loc-economy').value,
+    notes:document.getElementById('loc-notes').value
+  };
+  if(editingId){const i=world.locations.findIndex(l=>l.id===editingId);world.locations[i]=loc;}
+  else world.locations.push(loc);
+  closeModal('locModal'); renderLocations(); renderMapLocList();
+  toast(editingId?'Local atualizado!':'Local criado!','success');
+}
+function renderLocations(){
+  const el=document.getElementById('locs-grid');
+  if(!world.locations.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">⬡</div><p>Nenhum local criado ainda</p></div>';return;}
+  el.innerHTML=world.locations.map(l=>{
+    const parent=world.locations.find(p=>p.id===l.parentId);
+    return `<div class="item-card" onclick="showDetail('location','${l.id}')">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:20px">${l.icon}</span>
+        <div>
+          <div class="item-title" style="margin:0">${l.name}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--font-mono)">${l.type}</div>
+        </div>
+        <span style="width:12px;height:12px;border-radius:2px;background:${l.color};margin-left:auto;flex-shrink:0;display:inline-block"></span>
+      </div>
+      ${parent?`<div style="font-size:12px;color:var(--text2)">Em: ${parent.name}</div>`:''}
+      <div class="item-desc" style="margin-top:4px">${l.desc||'Sem descrição'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// DETAIL VIEW
+// ═══════════════════════════════════════
+function showDetail(type,id){
+  const items={era:world.eras,event:world.events,character:world.characters,location:world.locations};
+  const item=items[type]?.find(i=>i.id===id);
+  if(!item)return;
+  document.getElementById('detail-title').textContent=item.name;
+  let html='';
+  if(type==='era'){
+    html=`
+      <div style="height:6px;border-radius:3px;background:${item.color};margin-bottom:16px"></div>
+      <div class="grid2" style="margin-bottom:12px">
+        <div><div style="font-size:11px;color:var(--text2);font-family:var(--font-mono)">INÍCIO</div><div style="font-size:16px;color:var(--gold);font-family:var(--font-title)">${fmt(item.start)}</div></div>
+        <div><div style="font-size:11px;color:var(--text2);font-family:var(--font-mono)">FIM</div><div style="font-size:16px;color:var(--gold);font-family:var(--font-title)">${fmt(item.end)}</div></div>
+      </div>
+      ${item.desc?`<p style="font-size:15px;line-height:1.6;margin-bottom:12px">${item.desc}</p>`:''}
+      ${item.lore?`<hr class="divider"><h4 style="font-family:var(--font-title);font-size:13px;color:var(--gold);margin-bottom:8px">LORE</h4><p style="font-size:14px;line-height:1.7;color:var(--text2)">${item.lore.replace(/\n/g,'<br>')}</p>`:''}
+    `;
+  } else if(type==='event'){
+    const loc=world.locations.find(l=>l.id===item.locationId);
+    const era=world.eras.find(e=>e.id===item.eraId);
+    html=`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${item.color}"></span>
+        <span style="font-family:var(--font-mono);font-size:13px;color:var(--text2)">${fmt(item.year)}${item.month!==''?' · '+world.calendar.months[item.month]?.name:''}</span>
+        ${loc?`<span style="font-size:12px;color:var(--text2)">· 📍 ${loc.name}</span>`:''}
+        ${era?`<span class="badge">${era.name}</span>`:''}
+      </div>
+      ${item.desc?`<p style="font-size:15px;line-height:1.6;margin-bottom:12px">${item.desc}</p>`:''}
+      ${item.lore?`<hr class="divider"><h4 style="font-family:var(--font-title);font-size:13px;color:var(--gold);margin-bottom:8px">DETALHES</h4><p style="font-size:14px;line-height:1.7;color:var(--text2)">${item.lore.replace(/\n/g,'<br>')}</p>`:''}
+      ${item.tags.length?`<div class="item-tags" style="margin-top:12px">${item.tags.map(t=>`<span class="tag" style="border-color:${item.color};color:${item.color}">${t}</span>`).join('')}</div>`:''}
+    `;
+  } else if(type==='character'){
+    const race=world.tags.races.find(r=>r.id===item.raceId);
+    const role=world.tags.roles.find(r=>r.id===item.roleId);
+    const alive=item.death===null||item.death===undefined;
+    html=`
+      <div class="char-detail">
+        <div class="char-portrait" style="border-color:${item.color}33">${item.icon}</div>
+        <div class="char-info">
+          <div class="char-name">${item.name}</div>
+          ${item.title?`<div class="char-sub">${item.title}</div>`:''}
+          <div class="char-tags">
+            ${race?`<span class="tag" style="border-color:${race.color};color:${race.color}">${race.name}</span>`:''}
+            ${role?`<span class="tag" style="border-color:var(--gold);color:var(--gold)">${role.name}</span>`:''}
+            <span class="tag" style="border-color:${alive?'var(--teal)':'var(--text3)'};color:${alive?'var(--teal)':'var(--text3)'}">${alive?'Vivo':'Morto'}</span>
+          </div>
+          ${item.birth!==null?`<div class="life-bar"><label>Nascimento</label><span>${fmt(item.birth)}</span></div>`:''}
+          ${item.death!==null?`<div class="life-bar"><label>Morte</label><span style="color:var(--crimson)">${fmt(item.death)}</span></div>`:''}
+        </div>
+      </div>
+      <hr class="divider">
+      ${item.physical?`<h4 style="font-family:var(--font-title);font-size:12px;color:var(--gold);margin-bottom:6px">APARÊNCIA</h4><p style="font-size:14px;line-height:1.7;color:var(--text2);margin-bottom:12px">${item.physical}</p>`:''}
+      ${item.personality?`<h4 style="font-family:var(--font-title);font-size:12px;color:var(--gold);margin-bottom:6px">PERSONALIDADE</h4><p style="font-size:14px;line-height:1.7;color:var(--text2);margin-bottom:12px">${item.personality}</p>`:''}
+      ${item.lore?`<h4 style="font-family:var(--font-title);font-size:12px;color:var(--gold);margin-bottom:6px">HISTÓRIA</h4><p style="font-size:14px;line-height:1.7;color:var(--text2);margin-bottom:12px">${item.lore.replace(/\n/g,'<br>')}</p>`:''}
+      ${item.abilities?`<h4 style="font-family:var(--font-title);font-size:12px;color:var(--gold);margin-bottom:6px">HABILIDADES</h4><p style="font-size:14px;line-height:1.7;color:var(--text2)">${item.abilities}</p>`:''}
+    `;
+  } else if(type==='location'){
+    const parent=world.locations.find(p=>p.id===item.parentId);
+    html=`
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <span style="font-size:32px">${item.icon}</span>
+        <div>
+          <div style="font-size:11px;font-family:var(--font-mono);color:var(--text3)">${item.type.toUpperCase()}</div>
+          ${parent?`<div style="font-size:13px;color:var(--text2)">Em: ${parent.name}</div>`:''}
+        </div>
+        <span style="width:16px;height:16px;border-radius:3px;background:${item.color};margin-left:auto"></span>
+      </div>
+      ${item.desc?`<p style="font-size:15px;line-height:1.6;margin-bottom:12px">${item.desc}</p>`:''}
+      <div class="grid2" style="margin-bottom:12px;font-size:13px">
+        ${item.pop?`<div><span style="color:var(--text2)">População: </span>${item.pop}</div>`:''}
+        ${item.lang?`<div><span style="color:var(--text2)">Língua: </span>${item.lang}</div>`:''}
+        ${item.gov?`<div style="grid-column:1/-1"><span style="color:var(--text2)">Governo: </span>${item.gov}</div>`:''}
+      </div>
+      ${item.lore?`<hr class="divider"><h4 style="font-family:var(--font-title);font-size:12px;color:var(--gold);margin-bottom:6px">HISTÓRIA & LORE</h4><p style="font-size:14px;line-height:1.7;color:var(--text2);margin-bottom:12px">${item.lore.replace(/\n/g,'<br>')}</p>`:''}
+      ${item.economy?`<h4 style="font-family:var(--font-title);font-size:12px;color:var(--gold);margin-bottom:6px">ECONOMIA</h4><p style="font-size:14px;line-height:1.7;color:var(--text2)">${item.economy}</p>`:''}
+    `;
+  }
+  document.getElementById('detail-body').innerHTML=html;
+  const deleteBtn=document.getElementById('detail-delete-btn');
+  const editBtn=document.getElementById('detail-edit-btn');
+  deleteBtn.onclick=()=>{ deleteItem(type,id); closeModal('detailModal'); };
+  editBtn.onclick=()=>{ closeModal('detailModal'); editItem(type,id); };
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function deleteItem(type,id){
+  const maps={era:'eras',event:'events',character:'characters',location:'locations'};
+  world[maps[type]]=world[maps[type]].filter(i=>i.id!==id);
+  renderAll(); renderDashboard();
+  toast('Excluído!','success');
+}
+
+function editItem(type,id){
+  editingId=id;
+  const maps={era:'eras',event:'events',character:'characters',location:'locations'};
+  const item=world[maps[type]]?.find(i=>i.id===id);
+  if(!item)return;
+  if(type==='era'){
+    document.getElementById('era-modal-title').textContent='Editar Era';
+    document.getElementById('era-name').value=item.name;
+    document.getElementById('era-start').value=item.start;
+    document.getElementById('era-end').value=item.end;
+    document.getElementById('era-color').value=item.color;
+    document.getElementById('era-desc').value=item.desc||'';
+    document.getElementById('era-lore').value=item.lore||'';
+    openModal('eraModal');
+  } else if(type==='event'){
+    populateEventRelations();
+    document.getElementById('event-modal-title').textContent='Editar Evento';
+    document.getElementById('ev-name').value=item.name;
+    document.getElementById('ev-year').value=item.year;
+    document.getElementById('ev-month').value=item.month;
+    document.getElementById('ev-importance').value=item.importance;
+    document.getElementById('ev-color').value=item.color;
+    document.getElementById('ev-tags').value=item.tags.join(', ');
+    document.getElementById('ev-desc').value=item.desc||'';
+    document.getElementById('ev-lore').value=item.lore||'';
+    document.getElementById('ev-location').value=item.locationId||'';
+    document.getElementById('ev-era').value=item.eraId||'';
+    openModal('eventModal');
+  } else if(type==='character'){
+    populateCharSelects();
+    document.getElementById('char-modal-title').textContent='Editar Personagem';
+    document.getElementById('char-name').value=item.name;
+    document.getElementById('char-title').value=item.title||'';
+    document.getElementById('char-icon').value=item.icon||'';
+    document.getElementById('char-race').value=item.raceId||'';
+    document.getElementById('char-role').value=item.roleId||'';
+    document.getElementById('char-birth').value=item.birth!==null&&item.birth!==undefined?item.birth:'';
+    document.getElementById('char-death').value=item.death!==null&&item.death!==undefined?item.death:'';
+    document.getElementById('char-color').value=item.color;
+    document.getElementById('char-origin').value=item.originId||'';
+    document.getElementById('char-tags').value=item.tags.join(', ');
+    document.getElementById('char-physical').value=item.physical||'';
+    document.getElementById('char-personality').value=item.personality||'';
+    document.getElementById('char-lore').value=item.lore||'';
+    document.getElementById('char-abilities').value=item.abilities||'';
+    document.getElementById('char-allies').value=item.allies||'';
+    document.getElementById('char-enemies').value=item.enemies||'';
+    document.getElementById('char-rel-notes').value=item.relNotes||'';
+    openModal('charModal');
+  } else if(type==='location'){
+    populateLocSelects();
+    document.getElementById('loc-modal-title').textContent='Editar Local';
+    document.getElementById('loc-name').value=item.name;
+    document.getElementById('loc-type').value=item.type;
+    document.getElementById('loc-parent').value=item.parentId||'';
+    document.getElementById('loc-color').value=item.color;
+    document.getElementById('loc-icon').value=item.icon||'';
+    document.getElementById('loc-desc').value=item.desc||'';
+    document.getElementById('loc-lore').value=item.lore||'';
+    document.getElementById('loc-pop').value=item.pop||'';
+    document.getElementById('loc-lang').value=item.lang||'';
+    document.getElementById('loc-gov').value=item.gov||'';
+    document.getElementById('loc-economy').value=item.economy||'';
+    document.getElementById('loc-notes').value=item.notes||'';
+    openModal('locModal');
+  }
+}
+
+// ═══════════════════════════════════════
+// TIMELINE
+// ═══════════════════════════════════════
+function fmt(y){ 
+  if(y === null || y === undefined) return 'Desconhecido';
+  return y + ' ' + world.calendar.suffix; 
+}
+
+function renderTimeline(){
+  const zoom=+document.getElementById('tl-zoom').value;
+  const pxPerYear=zoom*8;
+  const allYears=[...world.eras.flatMap(e=>[e.start,e.end]),...world.events.map(e=>e.year),...world.characters.flatMap(c=>[c.birth,c.death]).filter(v=>v!==null&&v!==undefined)];
+  if(!allYears.length){
+    ['tl-eras','tl-events','tl-chars'].forEach(id=>document.getElementById(id).innerHTML='<div style="font-size:12px;color:var(--text3);padding:10px">Sem dados</div>');
+    return;
+  }
+  const minY=Math.min(...allYears);
+  const maxY=Math.max(...allYears);
+  const span=Math.max(maxY-minY,100);
+  const totalW=span*pxPerYear+200;
+  const offset=80;
+  const toX=y=>(y-minY)*pxPerYear+offset;
+
+  // ERAS
+  const erasEl=document.getElementById('tl-eras');
+  erasEl.style.width=totalW+'px';
+  erasEl.innerHTML='';
+  world.eras.forEach(e=>{
+    const x=toX(e.start);
+    const w=Math.max((e.end-e.start)*pxPerYear,40);
+    const band=document.createElement('div');
+    band.className='era-band';
+    band.style.cssText=`left:${x}px;width:${w}px;background:${e.color};opacity:.85`;
+    band.innerHTML=`<span>${e.name}</span>`;
+    band.onclick=()=>showDetail('era',e.id);
+    erasEl.appendChild(band);
+  });
+  // Year ruler
+  const ruler=document.createElement('div');
+  ruler.className='year-ruler';
+  ruler.style.width=totalW+'px';
+  const step=Math.max(1,Math.ceil(span/20));
+  for(let y=minY;y<=maxY;y+=step){
+    const tick=document.createElement('div');
+    tick.className='year-tick';
+    tick.style.left=toX(y)+'px';
+    tick.innerHTML=`<div class="tick-line"></div><div class="tick-label">${y}</div>`;
+    ruler.appendChild(tick);
+  }
+  erasEl.appendChild(ruler);
+
+  // EVENTS
+  const evEl=document.getElementById('tl-events');
+  evEl.style.width=totalW+'px';
+  evEl.innerHTML='';
+  world.events.forEach(e=>{
+    const dot=document.createElement('div');
+    dot.className='event-dot';
+    dot.style.cssText=`left:${toX(e.year)}px;background:${e.color}`;
+    dot.innerHTML=`<div class="ev-tooltip">${e.name} (${fmt(e.year)})</div>`;
+    dot.onclick=()=>showDetail('event',e.id);
+    evEl.appendChild(dot);
+  });
+
+  // CHARACTERS
+  const chEl=document.getElementById('tl-chars');
+  chEl.style.width=totalW+'px';
+  chEl.innerHTML='';
+  const charH=20;
+  chEl.style.height=(world.characters.filter(c=>c.birth!=null).length*(charH+4)+20)+'px';
+  world.characters.forEach((c,i)=>{
+    if(c.birth == null) return;
+    const x=toX(c.birth);
+    const endY=c.death != null ? c.death : maxY;
+    const w=Math.max((endY - c.birth)*pxPerYear, 8);
+    const bar=document.createElement('div');
+    bar.className='char-bar';
+    bar.style.cssText=`left:${x}px;width:${w}px;background:${c.color};top:${i*(charH+4)}px;height:${charH}px`;
+    bar.innerHTML=`<div class="cb-tooltip">${c.icon} ${c.name}</div>`;
+    bar.onclick=()=>showDetail('character',c.id);
+    chEl.appendChild(bar);
+    const lbl=document.createElement('span');
+    lbl.style.cssText=`position:absolute;left:${x+4}px;top:${i*(charH+4)+2}px;font-size:11px;font-family:var(--font-title);color:#fff;pointer-events:none;white-space:nowrap;overflow:hidden;max-width:${w-8}px`;
+    lbl.textContent=c.name;
+    chEl.appendChild(lbl);
+  });
+}
+
+// ═══════════════════════════════════════
+// MAP — LAYERED RENDERING SYSTEM
+// ═══════════════════════════════════════
+let canvas, ctx, gridSize = 28;
+
+function initMapCanvas(){
+  canvas = document.getElementById('map-canvas');
+  const wrap = document.getElementById('map-canvas-wrap');
+  canvas.width = wrap.clientWidth || 900;
+  canvas.height = wrap.clientHeight || 560;
+  ctx = canvas.getContext('2d');
+  gridSize = world.map.gridSize || +document.getElementById('grid-size').value;
+  world.map.gridSize = gridSize;
+  drawMap();
+  canvas.onmousedown = mapMouseDown;
+  canvas.onmousemove = mapMouseMove;
+  canvas.onmouseup = () => { mapDrawing = false; };
+  canvas.onmouseleave = () => { mapDrawing = false; };
+  canvas.onclick = mapClick;
+  renderMapLocList();
+}
+
+function cellKey(cx, cy){ return `${cx},${cy}`; }
+function getCellAt(x, y){ return { cx: Math.floor(x/gridSize), cy: Math.floor(y/gridSize) }; }
+function parseKey(key){ const [cx,cy]=key.split(',').map(Number); return {cx,cy}; }
+
+function drawMap(){
+  if(!ctx) return;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#0d1b2a';
+  ctx.fillRect(0,0,W,H);
+
+  const cells = world.map.cells || {};
+
+  // PASS 1 — Continent fills
+  Object.entries(cells).forEach(([key, cell]) => {
+    if(!cell.continent) return;
+    const {cx,cy} = parseKey(key);
+    ctx.fillStyle = cell.continent.color || '#4a7c4e';
+    ctx.fillRect(cx*gridSize, cy*gridSize, gridSize, gridSize);
+  });
+
+  // PASS 2 — Country borders
+  const countryGroups = {};
+  Object.entries(cells).forEach(([key, cell]) => {
+    if(!cell.country) return;
+    const c = cell.country.color || '#c9a84c';
+    if(!countryGroups[c]) countryGroups[c] = new Set();
+    countryGroups[c].add(key);
+  });
+  Object.entries(countryGroups).forEach(([color, keySet]) => {
+    drawGroupBorder(keySet, color, 3.5, false);
+  });
+
+  // PASS 3 — Region borders
+  const regionGroups = {};
+  Object.entries(cells).forEach(([key, cell]) => {
+    if(!cell.region) return;
+    const c = cell.region.color || '#7c6fc9';
+    if(!regionGroups[c]) regionGroups[c] = new Set();
+    regionGroups[c].add(key);
+  });
+  Object.entries(regionGroups).forEach(([color, keySet]) => {
+    drawGroupBorder(keySet, color, 1.5, true);
+  });
+
+  // PASS 4 — Grid overlay
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 0.5;
+  ctx.setLineDash([]);
+  for(let x=0; x<W; x+=gridSize){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for(let y=0; y<H; y+=gridSize){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // PASS 5 — City emojis
+  Object.entries(cells).forEach(([key, cell]) => {
+    if(!cell.city) return;
+    const {cx,cy} = parseKey(key);
+    const emoji = cell.city.emoji || '🏙';
+    const fs = Math.max(12, Math.min(gridSize - 4, 28));
+    ctx.font = `${fs}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, cx*gridSize + gridSize/2, cy*gridSize + gridSize/2);
+  });
+
+  // PASS 6 — Selected cell highlight
+  if(selectedCell){
+    const {cx,cy} = parseKey(selectedCell);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([3,3]);
+    ctx.strokeRect(cx*gridSize+1, cy*gridSize+1, gridSize-2, gridSize-2);
+    ctx.setLineDash([]);
+  }
+}
+
+function drawGroupBorder(keySet, color, lineWidth, dashed){
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.setLineDash(dashed ? [4,3] : []);
+  const dirs = [{dx:0,dy:-1,x1:0,y1:0,x2:1,y2:0}, {dx:1,dy:0,x1:1,y1:0,x2:1,y2:1}, {dx:0,dy:1,x1:0,y1:1,x2:1,y2:1}, {dx:-1,dy:0,x1:0,y1:0,x2:0,y2:1}];
+  keySet.forEach(key => {
+    const {cx,cy} = parseKey(key);
+    dirs.forEach(d => {
+      const nk = cellKey(cx+d.dx, cy+d.dy);
+      if(!keySet.has(nk)){
+        ctx.beginPath();
+        ctx.moveTo((cx+d.x1)*gridSize, (cy+d.y1)*gridSize);
+        ctx.lineTo((cx+d.x2)*gridSize, (cy+d.y2)*gridSize);
+        ctx.stroke();
+      }
+    });
+  });
+  ctx.setLineDash([]);
+}
+
+function mapMouseDown(e){ if(mapTool==='select') return; mapDrawing = true; paintCell(e); }
+function mapMouseMove(e){ if(mapDrawing && mapTool!=='select') paintCell(e); }
+function mapClick(e){ if(mapTool==='select') selectCell(e); }
+
+function paintCell(e){
+  const rect = canvas.getBoundingClientRect();
+  const {cx,cy} = getCellAt(e.clientX-rect.left, e.clientY-rect.top);
+  const key = cellKey(cx,cy);
+  const cells = world.map.cells;
+  if(!cells[key]) cells[key] = {};
+
+  if(mapTool==='erase'){
+    delete cells[key];
+  } else if(mapTool==='continent'){
+    cells[key].continent = { color: document.getElementById('map-color').value };
+  } else if(mapTool==='country'){
+    cells[key].country = { color: document.getElementById('map-color').value };
+  } else if(mapTool==='region'){
+    cells[key].region = { color: document.getElementById('map-color').value };
+  } else if(mapTool==='city'){
+    cells[key].city = { emoji: document.getElementById('city-emoji-input')?.value || '🏙' };
+  }
+  drawMap();
+}
+
+function selectCell(e){
+  const rect = canvas.getBoundingClientRect();
+  const {cx,cy} = getCellAt(e.clientX-rect.left, e.clientY-rect.top);
+  selectedCell = cellKey(cx,cy);
+  drawMap();
+  const cell = world.map.cells[selectedCell] || {};
+  const panel = document.getElementById('cell-edit-panel');
+  panel.innerHTML = `
+    <div style="font-size:11px;color:var(--text3);font-family:var(--font-mono);margin-bottom:8px">Célula ${cx}, ${cy}</div>
+    <div class="form-group" style="margin-bottom:8px"><label>🌿 Cor do continente</label><input type="color" id="cell-cont-color" value="${cell.continent?.color||'#4a7c4e'}"></div>
+    <div class="form-group" style="margin-bottom:8px"><label>👑 Cor do reino</label><input type="color" id="cell-country-color" value="${cell.country?.color||'#c9a84c'}"></div>
+    <div class="form-group" style="margin-bottom:8px"><label>◫ Cor da região</label><input type="color" id="cell-region-color" value="${cell.region?.color||'#7c6fc9'}"></div>
+    <div class="form-group" style="margin-bottom:8px"><label>🏙 Emoji da cidade</label><input type="text" id="cell-city-emoji" value="${cell.city?.emoji||''}" maxlength="4" placeholder="🏙 ou vazio p/ remover" style="font-size:16px"></div>
+    <div class="form-group"><label>Local vinculado</label><select id="cell-loc"><option value="">— Nenhum —</option>${world.locations.map(l=>`<option value="${l.id}" ${cell.locId===l.id?'selected':''}>${l.icon} ${l.name}</option>`).join('')}</select></div>
+  `;
+}
+
+function applyMapCellEdit(){
+  if(!selectedCell) return;
+  const cells = world.map.cells;
+  if(!cells[selectedCell]) cells[selectedCell] = {};
+  const c = cells[selectedCell];
+  const contColor = document.getElementById('cell-cont-color')?.value;
+  const countryColor = document.getElementById('cell-country-color')?.value;
+  const regionColor = document.getElementById('cell-region-color')?.value;
+  const cityEmoji = document.getElementById('cell-city-emoji')?.value?.trim();
+  const locId = document.getElementById('cell-loc')?.value;
+  if(contColor) c.continent = { color: contColor };
+  if(countryColor) c.country = { color: countryColor };
+  if(regionColor) c.region = { color: regionColor };
+  if(cityEmoji) c.city = { emoji: cityEmoji };
+  else if(cityEmoji==='') delete c.city;
+  if(locId) c.locId = locId; else delete c.locId;
+  drawMap();
+  toast('Célula atualizada!','success');
+}
+
+function setTool(t){
+  mapTool = t;
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tool-'+t)?.classList.add('active');
+  const isCity = (t==='city');
+  document.getElementById('color-section').style.display = isCity?'none':'block';
+  document.getElementById('city-emoji-section').style.display = isCity?'block':'none';
+  const defaults = { continent:'#4a7c4e', country:'#c9a84c', region:'#7c6fc9' };
+  if(defaults[t]){ document.getElementById('map-color').value = defaults[t]; document.getElementById('map-color-hex').value = defaults[t]; }
+}
+
+function changeGridSize(){
+  gridSize = +document.getElementById('grid-size').value;
+  world.map.gridSize = gridSize;
+  drawMap();
+}
+
+function clearMapLayer(){
+  const layer = { continent:'continent', country:'country', region:'region', city:'city' }[mapTool];
+  if(!layer){ toast('Selecione uma camada primeiro','error'); return; }
+  if(!confirm(`Limpar camada "${mapTool}" do mapa?`)) return;
+  Object.values(world.map.cells).forEach(c => delete c[layer]);
+  world.map.cells = Object.fromEntries(Object.entries(world.map.cells).filter(([,c])=>Object.keys(c).length>0));
+  drawMap();
+  toast(`Camada ${mapTool} limpa`,'success');
+}
+
+function clearMap(){
+  if(!confirm('Limpar TODO o mapa? Isso apaga todas as camadas.')) return;
+  world.map.cells = {};
+  drawMap();
+  toast('Mapa limpo','success');
+}
+
+function syncColor(hex){
+  if(/^#[0-9a-fA-F]{6}$/.test(hex)) document.getElementById('map-color').value = hex;
+}
+document.getElementById('map-color')?.addEventListener('input', function(){
+  document.getElementById('map-color-hex').value = this.value;
+});
+
+function renderMapLocList(){
+  const el = document.getElementById('map-loc-list');
+  if(!el) return;
+  if(!world.locations.length){ el.innerHTML='<div style="color:var(--text3)">Crie locais primeiro</div>'; return; }
+  el.innerHTML = world.locations.map(l=>`
+    <div style="display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;border-radius:3px" onclick="document.getElementById('map-color').value='${l.color}';document.getElementById('map-color-hex').value='${l.color}'" title="Usar cor de ${l.name}">
+      <span style="width:10px;height:10px;border-radius:2px;background:${l.color};flex-shrink:0;border:1px solid rgba(255,255,255,.2)"></span>
+      <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.icon} ${l.name}</span>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════
+function renderDashboard(){
+  document.getElementById('stat-eras').textContent=world.eras.length;
+  document.getElementById('stat-events').textContent=world.events.length;
+  document.getElementById('stat-chars').textContent=world.characters.length;
+  document.getElementById('stat-locs').textContent=world.locations.length;
+  const de=document.getElementById('dash-eras');
+  de.innerHTML=world.eras.slice(-4).map(e=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="showDetail('era','${e.id}')">
+      <span style="width:8px;height:8px;border-radius:50%;background:${e.color};flex-shrink:0"></span>
+      <span style="font-size:13px;flex:1">${e.name}</span>
+      <span style="font-size:11px;color:var(--text3);font-family:var(--font-mono)">${fmt(e.start)}</span>
+    </div>
+  `).join('') || '<div style="font-size:13px;color:var(--text3);padding:8px 0">Nenhuma era</div>';
+  const dc=document.getElementById('dash-chars');
+  dc.innerHTML=world.characters.slice(-4).map(c=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="showDetail('character','${c.id}')">
+      <span style="font-size:16px">${c.icon}</span>
+      <span style="font-size:13px;flex:1">${c.name}</span>
+      <span style="font-size:11px;color:${c.death===null||c.death===undefined?'var(--teal)':'var(--text3)'};font-family:var(--font-mono)">${c.death===null||c.death===undefined?'VIVO':'†'}</span>
+    </div>
+  `).join('') || '<div style="font-size:13px;color:var(--text3);padding:8px 0">Nenhum personagem</div>';
+}
+
+// ═══════════════════════════════════════
+// EXPORT .world
+// ═══════════════════════════════════════
+async function exportWorld(){
+  try{
+    const mapData = Object.entries(world.map.cells).map(([k,v])=>({key:k,...v}));
+    const files = {
+      'data/world.json': JSON.stringify({name:world.name,desc:world.desc,genre:world.genre,scale:world.scale,calendar:world.calendar,tags:world.tags},null,2),
+      'data/eras.json': JSON.stringify(world.eras,null,2),
+      'data/events.json': JSON.stringify(world.events,null,2),
+      'lores/characters.json': JSON.stringify(world.characters,null,2),
+      'lores/locations.json': JSON.stringify(world.locations,null,2),
+      'map/map.json': JSON.stringify({gridSize:world.map.gridSize,cells:mapData},null,2),
+    };
+    if(window.JSZip){
+      const zip=new JSZip();
+      Object.entries(files).forEach(([path,content])=>zip.file(path,content));
+      const blob=await zip.generateAsync({type:'blob'});
+      downloadBlob(blob,`${world.name||'world'}.world`);
+    } else {
+      const bundle = JSON.stringify({_format:'WorldForge',_version:'1.0',files},null,2);
+      const blob=new Blob([bundle],{type:'application/json'});
+      downloadBlob(blob,`${world.name||'world'}.world`);
+    }
+    toast('Exportado! (arquivo .world salvo)','success');
+  }catch(e){
+    toast('Erro ao exportar: '+e.message,'error');
+  }
+}
+
+function downloadBlob(blob,name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ═══════════════════════════════════════
+// IMPORT .world
+// ═══════════════════════════════════════
+function triggerImport(){
+  document.getElementById('import-file-input').click();
+}
+
+async function importWorld(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if(ext === 'world' && window.JSZip){
+      const zip = await JSZip.loadAsync(file);
+      const loadJson = async (path) => { const f = zip.file(path); return f ? JSON.parse(await f.async('string')) : null; };
+      
+      const worldJson = await loadJson('data/world.json');
+      const erasJson = await loadJson('data/eras.json');
+      const eventsJson = await loadJson('data/events.json');
+      const charsJson = await loadJson('lores/characters.json');
+      const locsJson = await loadJson('lores/locations.json');
+      const mapJson = await loadJson('map/map.json');
+      
+      if(worldJson){
+        world.name = worldJson.name || 'Sem Título';
+        world.desc = worldJson.desc || '';
+        world.genre = worldJson.genre || 'Fantasia';
+        world.scale = worldJson.scale || 1;
+        world.calendar = worldJson.calendar || world.calendar;
+        world.tags = worldJson.tags || world.tags;
+      }
+      if(erasJson) world.eras = erasJson;
+      if(eventsJson) world.events = eventsJson;
+      if(charsJson) world.characters = charsJson;
+      if(locsJson) world.locations = locsJson;
+      if(mapJson){
+        world.map.gridSize = mapJson.gridSize || 28;
+        const cellsObj = {};
+        (mapJson.cells || []).forEach(c => { const {key, ...rest} = c; cellsObj[key] = rest; });
+        world.map.cells = cellsObj;
+      }
+    } else {
+      const text = await file.text();
+      const bundle = JSON.parse(text);
+      if(bundle.files){
+        const load = (path) => bundle.files[path] ? JSON.parse(bundle.files[path]) : null;
+        const worldJson = load('data/world.json');
+        const erasJson = load('data/eras.json');
+        const eventsJson = load('data/events.json');
+        const charsJson = load('lores/characters.json');
+        const locsJson = load('lores/locations.json');
+        const mapJson = load('map/map.json');
+        
+        if(worldJson){
+          world.name = worldJson.name || 'Sem Título';
+          world.desc = worldJson.desc || '';
+          world.genre = worldJson.genre || 'Fantasia';
+          world.scale = worldJson.scale || 1;
+          world.calendar = worldJson.calendar || world.calendar;
+          world.tags = worldJson.tags || world.tags;
+        }
+        if(erasJson) world.eras = erasJson;
+        if(eventsJson) world.events = eventsJson;
+        if(charsJson) world.characters = charsJson;
+        if(locsJson) world.locations = locsJson;
+        if(mapJson){
+          world.map.gridSize = mapJson.gridSize || 28;
+          const cellsObj = {};
+          (mapJson.cells || []).forEach(c => { const {key, ...rest} = c; cellsObj[key] = rest; });
+          world.map.cells = cellsObj;
+        }
+      }
+    }
+    document.getElementById('world-name-display').textContent = world.name;
+    renderAll();
+    renderDashboard();
+    if(document.getElementById('view-map').classList.contains('active')) initMapCanvas();
+    else initMapCanvas(); // prepare map in background
+    toast('Mundo importado com sucesso!', 'success');
+    // Clear file input
+    event.target.value = '';
+  } catch(e){
+    toast('Erro ao importar: ' + e.message, 'error');
+    event.target.value = '';
+  }
+}
+
+// ═══════════════════════════════════════
+// SAVE TO DRIVE (placeholder)
+// ═══════════════════════════════════════
+async function saveToDrive(){
+  toast('Salvando no Google Drive...','success');
+  setTimeout(()=>{
+    localStorage.setItem('worldforge_save', JSON.stringify(world));
+    toast('Salvo localmente! Para salvar no Drive, exporte o .world e faça upload manual em drive.google.com/drive/folders/1tJV-BOEXRDDVIirhqEIhQMl4VeqqEDRZ','success');
+    exportWorld();
+  },500);
+}
+
+// ═══════════════════════════════════════
+// AUTO-SAVE & LOAD
+// ═══════════════════════════════════════
+function autoSave(){
+  try{localStorage.setItem('worldforge_save',JSON.stringify(world));}catch(e){}
+}
+function autoLoad(){
+  try{
+    const saved=localStorage.getItem('worldforge_save');
+    if(saved){world=JSON.parse(saved);document.getElementById('world-name-display').textContent=world.name||'Sem Título';}
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════
+function renderAll(){
+  renderCalendar();
+  renderTags();
+  renderEras();
+  renderEvents();
+  renderChars();
+  renderLocations();
+}
+
+// ═══════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════
+function toast(msg,type=''){
+  const el=document.createElement('div');
+  el.className='toast-msg '+(type||'');
+  el.textContent=msg;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+autoLoad();
+renderAll();
+renderDashboard();
+setInterval(autoSave, 15000);
+
+// Load JSZip
+(function(){
+  if(!window.JSZip){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    document.head.appendChild(s);
+  }
+})();
+</script>
+</body>
+</html>
