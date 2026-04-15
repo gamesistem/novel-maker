@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WorldForge — Criador de Mundos</title>
+<title>WorldBuilder - DG/Books</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -191,8 +191,8 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
 <!-- SIDEBAR -->
 <nav id="sidebar">
   <div class="sidebar-logo">
-    <span>🌍</span>
-    <h1>WORLDFORGE</h1>
+    <span> -DG- </span>
+    <h1>WorldBuilder</h1>
   </div>
   <div class="nav-section">
     <div class="nav-section-label">Mundo</div>
@@ -217,9 +217,13 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
   </div>
   <div class="nav-section" style="margin-top:auto">
     <div class="nav-item" onclick="exportWorld()"><span class="icon">↓</span>Exportar .world</div>
+    <div class="nav-item" onclick="triggerImport()"><span class="icon">↑</span>Importar .world</div>
     <div class="nav-item" onclick="saveToDrive()"><span class="icon">☁</span>Salvar no Drive</div>
   </div>
 </nav>
+
+<!-- Hidden file input for import -->
+<input type="file" id="import-file-input" accept=".world,application/json" style="display:none" onchange="importWorld(event)">
 
 <!-- MAIN -->
 <div id="main">
@@ -970,7 +974,7 @@ let world = {
   characters: [],
   locations: [],
   tags: { races:[], roles:[], eventTags:[], locTypes:[] },
-  map: { cells:{}, gridSize:24 }
+  map: { cells:{}, gridSize:28 }
 };
 
 let editingId = null;
@@ -1164,7 +1168,6 @@ function renderEras(){
     </div>
   `).join('');
 }
-function fmt(y){ return y+' '+world.calendar.suffix; }
 
 // ═══════════════════════════════════════
 // EVENTS
@@ -1524,6 +1527,11 @@ function editItem(type,id){
 // ═══════════════════════════════════════
 // TIMELINE
 // ═══════════════════════════════════════
+function fmt(y){ 
+  if(y === null || y === undefined) return 'Desconhecido';
+  return y + ' ' + world.calendar.suffix; 
+}
+
 function renderTimeline(){
   const zoom=+document.getElementById('tl-zoom').value;
   const pxPerYear=zoom*8;
@@ -1585,12 +1593,12 @@ function renderTimeline(){
   chEl.style.width=totalW+'px';
   chEl.innerHTML='';
   const charH=20;
-  chEl.style.height=(world.characters.length*(charH+4)+20)+'px';
+  chEl.style.height=(world.characters.filter(c=>c.birth!=null).length*(charH+4)+20)+'px';
   world.characters.forEach((c,i)=>{
-    if(c.birth===null&&c.birth===undefined)return;
-    const x=toX(c.birth!==null&&c.birth!==undefined?c.birth:minY);
-    const endY=c.death!==null&&c.death!==undefined?c.death:maxY;
-    const w=Math.max((endY-(c.birth??minY))*pxPerYear,8);
+    if(c.birth == null) return;
+    const x=toX(c.birth);
+    const endY=c.death != null ? c.death : maxY;
+    const w=Math.max((endY - c.birth)*pxPerYear, 8);
     const bar=document.createElement('div');
     bar.className='char-bar';
     bar.style.cssText=`left:${x}px;width:${w}px;background:${c.color};top:${i*(charH+4)}px;height:${charH}px`;
@@ -1606,16 +1614,8 @@ function renderTimeline(){
 
 // ═══════════════════════════════════════
 // MAP — LAYERED RENDERING SYSTEM
-// layer order: continent → country → region → city
-// continent: filled green cells
-// country:   thick colored border drawn around contiguous group
-// region:    thin dashed border around contiguous group
-// city:      emoji drawn centered on single cell
 // ═══════════════════════════════════════
 let canvas, ctx, gridSize = 28;
-
-// cells structure per key "cx,cy":
-// { continent:{color}, country:{color}, region:{color}, city:{emoji} }
 
 function initMapCanvas(){
   canvas = document.getElementById('map-canvas');
@@ -1623,7 +1623,7 @@ function initMapCanvas(){
   canvas.width = wrap.clientWidth || 900;
   canvas.height = wrap.clientHeight || 560;
   ctx = canvas.getContext('2d');
-  gridSize = +document.getElementById('grid-size').value;
+  gridSize = world.map.gridSize || +document.getElementById('grid-size').value;
   world.map.gridSize = gridSize;
   drawMap();
   canvas.onmousedown = mapMouseDown;
@@ -1638,29 +1638,24 @@ function cellKey(cx, cy){ return `${cx},${cy}`; }
 function getCellAt(x, y){ return { cx: Math.floor(x/gridSize), cy: Math.floor(y/gridSize) }; }
 function parseKey(key){ const [cx,cy]=key.split(',').map(Number); return {cx,cy}; }
 
-// ── DRAW ──────────────────────────────
 function drawMap(){
   if(!ctx) return;
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
-
-  // Ocean bg
   ctx.fillStyle = '#0d1b2a';
   ctx.fillRect(0,0,W,H);
 
   const cells = world.map.cells || {};
 
-  // PASS 1 — Continent fills (solid green-tinted)
+  // PASS 1 — Continent fills
   Object.entries(cells).forEach(([key, cell]) => {
     if(!cell.continent) return;
     const {cx,cy} = parseKey(key);
-    const color = cell.continent.color || '#4a7c4e';
-    ctx.fillStyle = color;
+    ctx.fillStyle = cell.continent.color || '#4a7c4e';
     ctx.fillRect(cx*gridSize, cy*gridSize, gridSize, gridSize);
   });
 
-  // PASS 2 — Country borders (thick, per-group contiguous outline)
-  // Collect groups by color
+  // PASS 2 — Country borders
   const countryGroups = {};
   Object.entries(cells).forEach(([key, cell]) => {
     if(!cell.country) return;
@@ -1672,7 +1667,7 @@ function drawMap(){
     drawGroupBorder(keySet, color, 3.5, false);
   });
 
-  // PASS 3 — Region borders (thin dashed, per-group)
+  // PASS 3 — Region borders
   const regionGroups = {};
   Object.entries(cells).forEach(([key, cell]) => {
     if(!cell.region) return;
@@ -1684,14 +1679,14 @@ function drawMap(){
     drawGroupBorder(keySet, color, 1.5, true);
   });
 
-  // PASS 4 — Grid overlay (subtle)
+  // PASS 4 — Grid overlay
   ctx.strokeStyle = 'rgba(255,255,255,0.04)';
   ctx.lineWidth = 0.5;
   ctx.setLineDash([]);
   for(let x=0; x<W; x+=gridSize){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
   for(let y=0; y<H; y+=gridSize){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
 
-  // PASS 5 — City emojis centered on cells
+  // PASS 5 — City emojis
   Object.entries(cells).forEach(([key, cell]) => {
     if(!cell.city) return;
     const {cx,cy} = parseKey(key);
@@ -1714,16 +1709,11 @@ function drawMap(){
   }
 }
 
-// Draw the outer border of a set of cells (shared edges between same-set cells are NOT drawn)
 function drawGroupBorder(keySet, color, lineWidth, dashed){
   ctx.strokeStyle = color;
   ctx.lineWidth = lineWidth;
   ctx.setLineDash(dashed ? [4,3] : []);
-  // For each cell in group, draw only edges that border non-group cells
-  const dirs = [{dx:0,dy:-1,x1:0,y1:0,x2:1,y2:0}, // top
-                {dx:1,dy:0, x1:1,y1:0,x2:1,y2:1}, // right
-                {dx:0,dy:1, x1:0,y1:1,x2:1,y2:1}, // bottom
-                {dx:-1,dy:0,x1:0,y1:0,x2:0,y2:1}]; // left
+  const dirs = [{dx:0,dy:-1,x1:0,y1:0,x2:1,y2:0}, {dx:1,dy:0,x1:1,y1:0,x2:1,y2:1}, {dx:0,dy:1,x1:0,y1:1,x2:1,y2:1}, {dx:-1,dy:0,x1:0,y1:0,x2:0,y2:1}];
   keySet.forEach(key => {
     const {cx,cy} = parseKey(key);
     dirs.forEach(d => {
@@ -1739,12 +1729,7 @@ function drawGroupBorder(keySet, color, lineWidth, dashed){
   ctx.setLineDash([]);
 }
 
-// ── INTERACTION ───────────────────────
-function mapMouseDown(e){
-  if(mapTool==='select') return;
-  mapDrawing = true;
-  paintCell(e);
-}
+function mapMouseDown(e){ if(mapTool==='select') return; mapDrawing = true; paintCell(e); }
 function mapMouseMove(e){ if(mapDrawing && mapTool!=='select') paintCell(e); }
 function mapClick(e){ if(mapTool==='select') selectCell(e); }
 
@@ -1756,20 +1741,15 @@ function paintCell(e){
   if(!cells[key]) cells[key] = {};
 
   if(mapTool==='erase'){
-    // erase only the active layer or entire cell if no specific layer
     delete cells[key];
   } else if(mapTool==='continent'){
-    const color = document.getElementById('map-color').value;
-    cells[key].continent = { color };
+    cells[key].continent = { color: document.getElementById('map-color').value };
   } else if(mapTool==='country'){
-    const color = document.getElementById('map-color').value;
-    cells[key].country = { color };
+    cells[key].country = { color: document.getElementById('map-color').value };
   } else if(mapTool==='region'){
-    const color = document.getElementById('map-color').value;
-    cells[key].region = { color };
+    cells[key].region = { color: document.getElementById('map-color').value };
   } else if(mapTool==='city'){
-    const emoji = document.getElementById('city-emoji-input')?.value || '🏙';
-    cells[key].city = { emoji };
+    cells[key].city = { emoji: document.getElementById('city-emoji-input')?.value || '🏙' };
   }
   drawMap();
 }
@@ -1777,36 +1757,17 @@ function paintCell(e){
 function selectCell(e){
   const rect = canvas.getBoundingClientRect();
   const {cx,cy} = getCellAt(e.clientX-rect.left, e.clientY-rect.top);
-  const key = cellKey(cx,cy);
-  selectedCell = key;
+  selectedCell = cellKey(cx,cy);
   drawMap();
-  const cell = world.map.cells[key] || {};
+  const cell = world.map.cells[selectedCell] || {};
   const panel = document.getElementById('cell-edit-panel');
   panel.innerHTML = `
     <div style="font-size:11px;color:var(--text3);font-family:var(--font-mono);margin-bottom:8px">Célula ${cx}, ${cy}</div>
-    <div class="form-group" style="margin-bottom:8px">
-      <label>🌿 Cor do continente</label>
-      <input type="color" id="cell-cont-color" value="${cell.continent?.color||'#4a7c4e'}">
-    </div>
-    <div class="form-group" style="margin-bottom:8px">
-      <label>👑 Cor do reino</label>
-      <input type="color" id="cell-country-color" value="${cell.country?.color||'#c9a84c'}">
-    </div>
-    <div class="form-group" style="margin-bottom:8px">
-      <label>◫ Cor da região</label>
-      <input type="color" id="cell-region-color" value="${cell.region?.color||'#7c6fc9'}">
-    </div>
-    <div class="form-group" style="margin-bottom:8px">
-      <label>🏙 Emoji da cidade</label>
-      <input type="text" id="cell-city-emoji" value="${cell.city?.emoji||''}" maxlength="4" placeholder="🏙 ou vazio p/ remover" style="font-size:16px">
-    </div>
-    <div class="form-group">
-      <label>Local vinculado</label>
-      <select id="cell-loc">
-        <option value="">— Nenhum —</option>
-        ${world.locations.map(l=>`<option value="${l.id}" ${cell.locId===l.id?'selected':''}>${l.icon} ${l.name}</option>`).join('')}
-      </select>
-    </div>
+    <div class="form-group" style="margin-bottom:8px"><label>🌿 Cor do continente</label><input type="color" id="cell-cont-color" value="${cell.continent?.color||'#4a7c4e'}"></div>
+    <div class="form-group" style="margin-bottom:8px"><label>👑 Cor do reino</label><input type="color" id="cell-country-color" value="${cell.country?.color||'#c9a84c'}"></div>
+    <div class="form-group" style="margin-bottom:8px"><label>◫ Cor da região</label><input type="color" id="cell-region-color" value="${cell.region?.color||'#7c6fc9'}"></div>
+    <div class="form-group" style="margin-bottom:8px"><label>🏙 Emoji da cidade</label><input type="text" id="cell-city-emoji" value="${cell.city?.emoji||''}" maxlength="4" placeholder="🏙 ou vazio p/ remover" style="font-size:16px"></div>
+    <div class="form-group"><label>Local vinculado</label><select id="cell-loc"><option value="">— Nenhum —</option>${world.locations.map(l=>`<option value="${l.id}" ${cell.locId===l.id?'selected':''}>${l.icon} ${l.name}</option>`).join('')}</select></div>
   `;
 }
 
@@ -1820,11 +1781,11 @@ function applyMapCellEdit(){
   const regionColor = document.getElementById('cell-region-color')?.value;
   const cityEmoji = document.getElementById('cell-city-emoji')?.value?.trim();
   const locId = document.getElementById('cell-loc')?.value;
-  if(contColor && c.continent) c.continent.color = contColor;
-  if(countryColor && c.country) c.country.color = countryColor;
-  if(regionColor && c.region) c.region.color = regionColor;
+  if(contColor) c.continent = { color: contColor };
+  if(countryColor) c.country = { color: countryColor };
+  if(regionColor) c.region = { color: regionColor };
   if(cityEmoji) c.city = { emoji: cityEmoji };
-  else if(cityEmoji==='' && c.city) delete c.city;
+  else if(cityEmoji==='') delete c.city;
   if(locId) c.locId = locId; else delete c.locId;
   drawMap();
   toast('Célula atualizada!','success');
@@ -1834,16 +1795,11 @@ function setTool(t){
   mapTool = t;
   document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tool-'+t)?.classList.add('active');
-  // Show/hide color vs emoji picker
   const isCity = (t==='city');
   document.getElementById('color-section').style.display = isCity?'none':'block';
   document.getElementById('city-emoji-section').style.display = isCity?'block':'none';
-  // Set default color per tool
   const defaults = { continent:'#4a7c4e', country:'#c9a84c', region:'#7c6fc9' };
-  if(defaults[t]){
-    document.getElementById('map-color').value = defaults[t];
-    document.getElementById('map-color-hex').value = defaults[t];
-  }
+  if(defaults[t]){ document.getElementById('map-color').value = defaults[t]; document.getElementById('map-color-hex').value = defaults[t]; }
 }
 
 function changeGridSize(){
@@ -1872,7 +1828,7 @@ function clearMap(){
 function syncColor(hex){
   if(/^#[0-9a-fA-F]{6}$/.test(hex)) document.getElementById('map-color').value = hex;
 }
-document.getElementById('map-color').addEventListener('input', function(){
+document.getElementById('map-color')?.addEventListener('input', function(){
   document.getElementById('map-color-hex').value = this.value;
 });
 
@@ -1881,9 +1837,7 @@ function renderMapLocList(){
   if(!el) return;
   if(!world.locations.length){ el.innerHTML='<div style="color:var(--text3)">Crie locais primeiro</div>'; return; }
   el.innerHTML = world.locations.map(l=>`
-    <div style="display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;border-radius:3px" 
-         onclick="document.getElementById('map-color').value='${l.color}';document.getElementById('map-color-hex').value='${l.color}'"
-         title="Usar cor de ${l.name}">
+    <div style="display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;border-radius:3px" onclick="document.getElementById('map-color').value='${l.color}';document.getElementById('map-color-hex').value='${l.color}'" title="Usar cor de ${l.name}">
       <span style="width:10px;height:10px;border-radius:2px;background:${l.color};flex-shrink:0;border:1px solid rgba(255,255,255,.2)"></span>
       <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.icon} ${l.name}</span>
     </div>
@@ -1921,7 +1875,6 @@ function renderDashboard(){
 // ═══════════════════════════════════════
 async function exportWorld(){
   try{
-    // Build virtual zip structure as JSON (simulated)
     const mapData = Object.entries(world.map.cells).map(([k,v])=>({key:k,...v}));
     const files = {
       'data/world.json': JSON.stringify({name:world.name,desc:world.desc,genre:world.genre,scale:world.scale,calendar:world.calendar,tags:world.tags},null,2),
@@ -1931,15 +1884,12 @@ async function exportWorld(){
       'lores/locations.json': JSON.stringify(world.locations,null,2),
       'map/map.json': JSON.stringify({gridSize:world.map.gridSize,cells:mapData},null,2),
     };
-
-    // Use JSZip if available, else create a simple JSON bundle
     if(window.JSZip){
       const zip=new JSZip();
       Object.entries(files).forEach(([path,content])=>zip.file(path,content));
       const blob=await zip.generateAsync({type:'blob'});
       downloadBlob(blob,`${world.name||'world'}.world`);
     } else {
-      // Fallback: download as JSON bundle
       const bundle = JSON.stringify({_format:'WorldForge',_version:'1.0',files},null,2);
       const blob=new Blob([bundle],{type:'application/json'});
       downloadBlob(blob,`${world.name||'world'}.world`);
@@ -1958,22 +1908,100 @@ function downloadBlob(blob,name){
   URL.revokeObjectURL(a.href);
 }
 
-// Try to load JSZip
-(function(){
-  const s=document.createElement('script');
-  s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-  document.head.appendChild(s);
-})();
+// ═══════════════════════════════════════
+// IMPORT .world
+// ═══════════════════════════════════════
+function triggerImport(){
+  document.getElementById('import-file-input').click();
+}
+
+async function importWorld(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if(ext === 'world' && window.JSZip){
+      const zip = await JSZip.loadAsync(file);
+      const loadJson = async (path) => { const f = zip.file(path); return f ? JSON.parse(await f.async('string')) : null; };
+      
+      const worldJson = await loadJson('data/world.json');
+      const erasJson = await loadJson('data/eras.json');
+      const eventsJson = await loadJson('data/events.json');
+      const charsJson = await loadJson('lores/characters.json');
+      const locsJson = await loadJson('lores/locations.json');
+      const mapJson = await loadJson('map/map.json');
+      
+      if(worldJson){
+        world.name = worldJson.name || 'Sem Título';
+        world.desc = worldJson.desc || '';
+        world.genre = worldJson.genre || 'Fantasia';
+        world.scale = worldJson.scale || 1;
+        world.calendar = worldJson.calendar || world.calendar;
+        world.tags = worldJson.tags || world.tags;
+      }
+      if(erasJson) world.eras = erasJson;
+      if(eventsJson) world.events = eventsJson;
+      if(charsJson) world.characters = charsJson;
+      if(locsJson) world.locations = locsJson;
+      if(mapJson){
+        world.map.gridSize = mapJson.gridSize || 28;
+        const cellsObj = {};
+        (mapJson.cells || []).forEach(c => { const {key, ...rest} = c; cellsObj[key] = rest; });
+        world.map.cells = cellsObj;
+      }
+    } else {
+      const text = await file.text();
+      const bundle = JSON.parse(text);
+      if(bundle.files){
+        const load = (path) => bundle.files[path] ? JSON.parse(bundle.files[path]) : null;
+        const worldJson = load('data/world.json');
+        const erasJson = load('data/eras.json');
+        const eventsJson = load('data/events.json');
+        const charsJson = load('lores/characters.json');
+        const locsJson = load('lores/locations.json');
+        const mapJson = load('map/map.json');
+        
+        if(worldJson){
+          world.name = worldJson.name || 'Sem Título';
+          world.desc = worldJson.desc || '';
+          world.genre = worldJson.genre || 'Fantasia';
+          world.scale = worldJson.scale || 1;
+          world.calendar = worldJson.calendar || world.calendar;
+          world.tags = worldJson.tags || world.tags;
+        }
+        if(erasJson) world.eras = erasJson;
+        if(eventsJson) world.events = eventsJson;
+        if(charsJson) world.characters = charsJson;
+        if(locsJson) world.locations = locsJson;
+        if(mapJson){
+          world.map.gridSize = mapJson.gridSize || 28;
+          const cellsObj = {};
+          (mapJson.cells || []).forEach(c => { const {key, ...rest} = c; cellsObj[key] = rest; });
+          world.map.cells = cellsObj;
+        }
+      }
+    }
+    document.getElementById('world-name-display').textContent = world.name;
+    renderAll();
+    renderDashboard();
+    if(document.getElementById('view-map').classList.contains('active')) initMapCanvas();
+    else initMapCanvas(); // prepare map in background
+    toast('Mundo importado com sucesso!', 'success');
+    // Clear file input
+    event.target.value = '';
+  } catch(e){
+    toast('Erro ao importar: ' + e.message, 'error');
+    event.target.value = '';
+  }
+}
 
 // ═══════════════════════════════════════
-// SAVE TO DRIVE
+// SAVE TO DRIVE (placeholder)
 // ═══════════════════════════════════════
 async function saveToDrive(){
   toast('Salvando no Google Drive...','success');
   setTimeout(()=>{
-    // Salvar também localmente como fallback
-    const data=JSON.stringify(world);
-    localStorage.setItem('worldforge_save',data);
+    localStorage.setItem('worldforge_save', JSON.stringify(world));
     toast('Salvo localmente! Para salvar no Drive, exporte o .world e faça upload manual em drive.google.com/drive/folders/1tJV-BOEXRDDVIirhqEIhQMl4VeqqEDRZ','success');
     exportWorld();
   },500);
@@ -2022,6 +2050,15 @@ autoLoad();
 renderAll();
 renderDashboard();
 setInterval(autoSave, 15000);
+
+// Load JSZip
+(function(){
+  if(!window.JSZip){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    document.head.appendChild(s);
+  }
+})();
 </script>
 </body>
 </html>
