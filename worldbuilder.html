@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WorldBuilder - DG/Books</title>
+<title>WorldBuilder - DG/ Books</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -191,7 +191,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
 <!-- SIDEBAR -->
 <nav id="sidebar">
   <div class="sidebar-logo">
-    <span> -DG- </span>
+    <span>[DG]</span>
     <h1>WorldBuilder</h1>
   </div>
   <div class="nav-section">
@@ -217,13 +217,12 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
   </div>
   <div class="nav-section" style="margin-top:auto">
     <div class="nav-item" onclick="exportWorld()"><span class="icon">↓</span>Exportar .world</div>
-    <div class="nav-item" onclick="triggerImport()"><span class="icon">↑</span>Importar .world</div>
-    <div class="nav-item" onclick="saveToDrive()"><span class="icon">☁</span>Salvar no Drive</div>
+    <div class="nav-item" onclick="document.getElementById('import-file').click()">
+      <span class="icon">↑</span>Importar .world
+      <input type="file" id="import-file" accept=".world,application/json,application/zip" style="display:none" onchange="importWorld(event)">
+    </div>
   </div>
 </nav>
-
-<!-- Hidden file input for import -->
-<input type="file" id="import-file-input" accept=".world,application/json" style="display:none" onchange="importWorld(event)">
 
 <!-- MAIN -->
 <div id="main">
@@ -402,6 +401,12 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
     <div id="view-map" class="view">
       <div class="page-header flex" style="margin-bottom:12px">
         <div><h2>Editor de Mapa</h2><p>Pinte em camadas: continente → reino → região → cidade</p></div>
+        <div class="ml-auto flex" style="gap:4px">
+          <button class="btn sm" onclick="zoomMap(-5)">−</button>
+          <span style="font-size:13px;color:var(--text2);font-family:var(--font-mono);min-width:50px;text-align:center" id="zoom-value">28px</span>
+          <button class="btn sm" onclick="zoomMap(5)">+</button>
+          <button class="btn sm" onclick="resetMapView()" style="margin-left:8px">⟲ Reset</button>
+        </div>
       </div>
       <div id="map-editor">
         <div id="map-tools" style="overflow-y:auto">
@@ -432,6 +437,9 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
           </div>
           <div class="tool-btn" id="tool-select" onclick="setTool('select')" style="display:flex;align-items:center;gap:6px">
             <span style="font-size:12px">⊹</span>SELECIONAR
+          </div>
+          <div class="tool-btn" id="tool-pan" onclick="setTool('pan')" style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:12px">✋</span>MOVER (PAN)
           </div>
 
           <hr class="divider">
@@ -974,7 +982,7 @@ let world = {
   characters: [],
   locations: [],
   tags: { races:[], roles:[], eventTags:[], locTypes:[] },
-  map: { cells:{}, gridSize:28 }
+  map: { cells:{}, gridSize:28, offsetX:0, offsetY:0, scale:1 }
 };
 
 let editingId = null;
@@ -982,6 +990,8 @@ let currentTagType = null;
 let mapTool = 'continent';
 let mapDrawing = false;
 let selectedCell = null;
+let isPanning = false;
+let lastPanPos = null;
 
 function uid(){ return Math.random().toString(36).slice(2,9) }
 function clone(o){ return JSON.parse(JSON.stringify(o)) }
@@ -1006,11 +1016,17 @@ function showView(name){
 // ═══════════════════════════════════════
 // MODALS
 // ═══════════════════════════════════════
-function openModal(id){
-  if(id==='eraModal'){ editingId=null; clearEraForm(); populateEraRelations(); }
-  if(id==='eventModal'){ editingId=null; clearEventForm(); populateEventRelations(); }
-  if(id==='charModal'){ editingId=null; clearCharForm(); populateCharSelects(); }
-  if(id==='locModal'){ editingId=null; clearLocForm(); populateLocSelects(); }
+function openModal(id, skipReset = false){
+  if(!skipReset){
+    if(id==='eraModal'){ editingId=null; clearEraForm(); populateEraRelations(); }
+    if(id==='eventModal'){ editingId=null; clearEventForm(); populateEventRelations(); }
+    if(id==='charModal'){ editingId=null; clearCharForm(); populateCharSelects(); }
+    if(id==='locModal'){ editingId=null; clearLocForm(); populateLocSelects(); }
+  } else {
+    if(id==='eventModal') populateEventRelations();
+    if(id==='charModal') populateCharSelects();
+    if(id==='locModal') populateLocSelects();
+  }
   document.getElementById(id).classList.add('open');
 }
 function closeModal(id){
@@ -1168,6 +1184,7 @@ function renderEras(){
     </div>
   `).join('');
 }
+function fmt(y){ return y+' '+world.calendar.suffix; }
 
 // ═══════════════════════════════════════
 // EVENTS
@@ -1236,7 +1253,8 @@ function clearCharForm(){
   document.getElementById('char-death').value='';
   document.getElementById('char-color').value='#7c6fc9';
   document.getElementById('char-modal-title').textContent='Novo Personagem';
-  document.querySelector('#charModal .tab').click();
+  const firstTab = document.querySelector('#charModal .tab');
+  if(firstTab) firstTab.click();
 }
 function populateCharSelects(){
   const races=document.getElementById('char-race');
@@ -1469,7 +1487,7 @@ function editItem(type,id){
     document.getElementById('era-color').value=item.color;
     document.getElementById('era-desc').value=item.desc||'';
     document.getElementById('era-lore').value=item.lore||'';
-    openModal('eraModal');
+    openModal('eraModal', true);
   } else if(type==='event'){
     populateEventRelations();
     document.getElementById('event-modal-title').textContent='Editar Evento';
@@ -1483,7 +1501,7 @@ function editItem(type,id){
     document.getElementById('ev-lore').value=item.lore||'';
     document.getElementById('ev-location').value=item.locationId||'';
     document.getElementById('ev-era').value=item.eraId||'';
-    openModal('eventModal');
+    openModal('eventModal', true);
   } else if(type==='character'){
     populateCharSelects();
     document.getElementById('char-modal-title').textContent='Editar Personagem';
@@ -1504,7 +1522,7 @@ function editItem(type,id){
     document.getElementById('char-allies').value=item.allies||'';
     document.getElementById('char-enemies').value=item.enemies||'';
     document.getElementById('char-rel-notes').value=item.relNotes||'';
-    openModal('charModal');
+    openModal('charModal', true);
   } else if(type==='location'){
     populateLocSelects();
     document.getElementById('loc-modal-title').textContent='Editar Local';
@@ -1520,18 +1538,13 @@ function editItem(type,id){
     document.getElementById('loc-gov').value=item.gov||'';
     document.getElementById('loc-economy').value=item.economy||'';
     document.getElementById('loc-notes').value=item.notes||'';
-    openModal('locModal');
+    openModal('locModal', true);
   }
 }
 
 // ═══════════════════════════════════════
 // TIMELINE
 // ═══════════════════════════════════════
-function fmt(y){ 
-  if(y === null || y === undefined) return 'Desconhecido';
-  return y + ' ' + world.calendar.suffix; 
-}
-
 function renderTimeline(){
   const zoom=+document.getElementById('tl-zoom').value;
   const pxPerYear=zoom*8;
@@ -1593,12 +1606,12 @@ function renderTimeline(){
   chEl.style.width=totalW+'px';
   chEl.innerHTML='';
   const charH=20;
-  chEl.style.height=(world.characters.filter(c=>c.birth!=null).length*(charH+4)+20)+'px';
+  chEl.style.height=(world.characters.length*(charH+4)+20)+'px';
   world.characters.forEach((c,i)=>{
-    if(c.birth == null) return;
-    const x=toX(c.birth);
-    const endY=c.death != null ? c.death : maxY;
-    const w=Math.max((endY - c.birth)*pxPerYear, 8);
+    if(c.birth===null&&c.birth===undefined)return;
+    const x=toX(c.birth!==null&&c.birth!==undefined?c.birth:minY);
+    const endY=c.death!==null&&c.death!==undefined?c.death:maxY;
+    const w=Math.max((endY-(c.birth??minY))*pxPerYear,8);
     const bar=document.createElement('div');
     bar.className='char-bar';
     bar.style.cssText=`left:${x}px;width:${w}px;background:${c.color};top:${i*(charH+4)}px;height:${charH}px`;
@@ -1613,7 +1626,7 @@ function renderTimeline(){
 }
 
 // ═══════════════════════════════════════
-// MAP — LAYERED RENDERING SYSTEM
+// MAP — LAYERED RENDERING SYSTEM with ZOOM/PAN
 // ═══════════════════════════════════════
 let canvas, ctx, gridSize = 28;
 
@@ -1623,25 +1636,37 @@ function initMapCanvas(){
   canvas.width = wrap.clientWidth || 900;
   canvas.height = wrap.clientHeight || 560;
   ctx = canvas.getContext('2d');
-  gridSize = world.map.gridSize || +document.getElementById('grid-size').value;
-  world.map.gridSize = gridSize;
+  gridSize = world.map.gridSize || 28;
+  document.getElementById('grid-size').value = gridSize;
+  document.getElementById('zoom-value').textContent = gridSize + 'px';
   drawMap();
   canvas.onmousedown = mapMouseDown;
   canvas.onmousemove = mapMouseMove;
-  canvas.onmouseup = () => { mapDrawing = false; };
-  canvas.onmouseleave = () => { mapDrawing = false; };
+  canvas.onmouseup = mapMouseUp;
+  canvas.onmouseleave = mapMouseUp;
   canvas.onclick = mapClick;
   renderMapLocList();
 }
 
 function cellKey(cx, cy){ return `${cx},${cy}`; }
-function getCellAt(x, y){ return { cx: Math.floor(x/gridSize), cy: Math.floor(y/gridSize) }; }
+function getCellAt(screenX, screenY){
+  const rect = canvas.getBoundingClientRect();
+  const canvasX = screenX - rect.left;
+  const canvasY = screenY - rect.top;
+  const worldX = (canvasX - world.map.offsetX) / world.map.scale;
+  const worldY = (canvasY - world.map.offsetY) / world.map.scale;
+  return { cx: Math.floor(worldX / gridSize), cy: Math.floor(worldY / gridSize) };
+}
 function parseKey(key){ const [cx,cy]=key.split(',').map(Number); return {cx,cy}; }
 
 function drawMap(){
   if(!ctx) return;
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(world.map.offsetX, world.map.offsetY);
+  ctx.scale(world.map.scale, world.map.scale);
+
   ctx.fillStyle = '#0d1b2a';
   ctx.fillRect(0,0,W,H);
 
@@ -1651,7 +1676,8 @@ function drawMap(){
   Object.entries(cells).forEach(([key, cell]) => {
     if(!cell.continent) return;
     const {cx,cy} = parseKey(key);
-    ctx.fillStyle = cell.continent.color || '#4a7c4e';
+    const color = cell.continent.color || '#4a7c4e';
+    ctx.fillStyle = color;
     ctx.fillRect(cx*gridSize, cy*gridSize, gridSize, gridSize);
   });
 
@@ -1681,10 +1707,18 @@ function drawMap(){
 
   // PASS 4 — Grid overlay
   ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-  ctx.lineWidth = 0.5;
+  ctx.lineWidth = 0.5 / world.map.scale;
   ctx.setLineDash([]);
-  for(let x=0; x<W; x+=gridSize){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-  for(let y=0; y<H; y+=gridSize){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  const startX = -world.map.offsetX / world.map.scale;
+  const startY = -world.map.offsetY / world.map.scale;
+  const endX = startX + W / world.map.scale;
+  const endY = startY + H / world.map.scale;
+  for(let x=Math.floor(startX/gridSize)*gridSize; x<endX; x+=gridSize){
+    ctx.beginPath(); ctx.moveTo(x, startY); ctx.lineTo(x, endY); ctx.stroke();
+  }
+  for(let y=Math.floor(startY/gridSize)*gridSize; y<endY; y+=gridSize){
+    ctx.beginPath(); ctx.moveTo(startX, y); ctx.lineTo(endX, y); ctx.stroke();
+  }
 
   // PASS 5 — City emojis
   Object.entries(cells).forEach(([key, cell]) => {
@@ -1702,18 +1736,19 @@ function drawMap(){
   if(selectedCell){
     const {cx,cy} = parseKey(selectedCell);
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 / world.map.scale;
     ctx.setLineDash([3,3]);
     ctx.strokeRect(cx*gridSize+1, cy*gridSize+1, gridSize-2, gridSize-2);
     ctx.setLineDash([]);
   }
+  ctx.restore();
 }
 
 function drawGroupBorder(keySet, color, lineWidth, dashed){
   ctx.strokeStyle = color;
-  ctx.lineWidth = lineWidth;
+  ctx.lineWidth = lineWidth / world.map.scale;
   ctx.setLineDash(dashed ? [4,3] : []);
-  const dirs = [{dx:0,dy:-1,x1:0,y1:0,x2:1,y2:0}, {dx:1,dy:0,x1:1,y1:0,x2:1,y2:1}, {dx:0,dy:1,x1:0,y1:1,x2:1,y2:1}, {dx:-1,dy:0,x1:0,y1:0,x2:0,y2:1}];
+  const dirs = [{dx:0,dy:-1,x1:0,y1:0,x2:1,y2:0}, {dx:1,dy:0, x1:1,y1:0,x2:1,y2:1}, {dx:0,dy:1, x1:0,y1:1,x2:1,y2:1}, {dx:-1,dy:0,x1:0,y1:0,x2:0,y2:1}];
   keySet.forEach(key => {
     const {cx,cy} = parseKey(key);
     dirs.forEach(d => {
@@ -1729,13 +1764,57 @@ function drawGroupBorder(keySet, color, lineWidth, dashed){
   ctx.setLineDash([]);
 }
 
-function mapMouseDown(e){ if(mapTool==='select') return; mapDrawing = true; paintCell(e); }
-function mapMouseMove(e){ if(mapDrawing && mapTool!=='select') paintCell(e); }
-function mapClick(e){ if(mapTool==='select') selectCell(e); }
-
-function paintCell(e){
+function mapMouseDown(e){
   const rect = canvas.getBoundingClientRect();
-  const {cx,cy} = getCellAt(e.clientX-rect.left, e.clientY-rect.top);
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  if(mapTool === 'pan' || e.button === 1){
+    isPanning = true;
+    lastPanPos = {x, y};
+    canvas.style.cursor = 'grabbing';
+    return;
+  }
+  if(mapTool === 'select') return;
+  mapDrawing = true;
+  paintCellAt(e);
+}
+
+function mapMouseMove(e){
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  if(isPanning && lastPanPos){
+    const dx = x - lastPanPos.x;
+    const dy = y - lastPanPos.y;
+    world.map.offsetX += dx;
+    world.map.offsetY += dy;
+    lastPanPos = {x, y};
+    drawMap();
+    return;
+  }
+  if(mapDrawing && mapTool !== 'select' && mapTool !== 'pan'){
+    paintCellAt(e);
+  }
+}
+
+function mapMouseUp(e){
+  if(isPanning){
+    isPanning = false;
+    lastPanPos = null;
+    canvas.style.cursor = mapTool === 'pan' ? 'grab' : 'crosshair';
+  }
+  mapDrawing = false;
+}
+
+function mapClick(e){
+  if(mapTool === 'select'){
+    selectCellAt(e);
+  }
+}
+
+function paintCellAt(e){
+  const rect = canvas.getBoundingClientRect();
+  const {cx,cy} = getCellAt(e.clientX - rect.left, e.clientY - rect.top);
   const key = cellKey(cx,cy);
   const cells = world.map.cells;
   if(!cells[key]) cells[key] = {};
@@ -1743,31 +1822,54 @@ function paintCell(e){
   if(mapTool==='erase'){
     delete cells[key];
   } else if(mapTool==='continent'){
-    cells[key].continent = { color: document.getElementById('map-color').value };
+    const color = document.getElementById('map-color').value;
+    cells[key].continent = { color };
   } else if(mapTool==='country'){
-    cells[key].country = { color: document.getElementById('map-color').value };
+    const color = document.getElementById('map-color').value;
+    cells[key].country = { color };
   } else if(mapTool==='region'){
-    cells[key].region = { color: document.getElementById('map-color').value };
+    const color = document.getElementById('map-color').value;
+    cells[key].region = { color };
   } else if(mapTool==='city'){
-    cells[key].city = { emoji: document.getElementById('city-emoji-input')?.value || '🏙' };
+    const emoji = document.getElementById('city-emoji-input')?.value || '🏙';
+    cells[key].city = { emoji };
   }
   drawMap();
 }
 
-function selectCell(e){
+function selectCellAt(e){
   const rect = canvas.getBoundingClientRect();
-  const {cx,cy} = getCellAt(e.clientX-rect.left, e.clientY-rect.top);
-  selectedCell = cellKey(cx,cy);
+  const {cx,cy} = getCellAt(e.clientX - rect.left, e.clientY - rect.top);
+  const key = cellKey(cx,cy);
+  selectedCell = key;
   drawMap();
-  const cell = world.map.cells[selectedCell] || {};
+  const cell = world.map.cells[key] || {};
   const panel = document.getElementById('cell-edit-panel');
   panel.innerHTML = `
     <div style="font-size:11px;color:var(--text3);font-family:var(--font-mono);margin-bottom:8px">Célula ${cx}, ${cy}</div>
-    <div class="form-group" style="margin-bottom:8px"><label>🌿 Cor do continente</label><input type="color" id="cell-cont-color" value="${cell.continent?.color||'#4a7c4e'}"></div>
-    <div class="form-group" style="margin-bottom:8px"><label>👑 Cor do reino</label><input type="color" id="cell-country-color" value="${cell.country?.color||'#c9a84c'}"></div>
-    <div class="form-group" style="margin-bottom:8px"><label>◫ Cor da região</label><input type="color" id="cell-region-color" value="${cell.region?.color||'#7c6fc9'}"></div>
-    <div class="form-group" style="margin-bottom:8px"><label>🏙 Emoji da cidade</label><input type="text" id="cell-city-emoji" value="${cell.city?.emoji||''}" maxlength="4" placeholder="🏙 ou vazio p/ remover" style="font-size:16px"></div>
-    <div class="form-group"><label>Local vinculado</label><select id="cell-loc"><option value="">— Nenhum —</option>${world.locations.map(l=>`<option value="${l.id}" ${cell.locId===l.id?'selected':''}>${l.icon} ${l.name}</option>`).join('')}</select></div>
+    <div class="form-group" style="margin-bottom:8px">
+      <label>🌿 Cor do continente</label>
+      <input type="color" id="cell-cont-color" value="${cell.continent?.color||'#4a7c4e'}">
+    </div>
+    <div class="form-group" style="margin-bottom:8px">
+      <label>👑 Cor do reino</label>
+      <input type="color" id="cell-country-color" value="${cell.country?.color||'#c9a84c'}">
+    </div>
+    <div class="form-group" style="margin-bottom:8px">
+      <label>◫ Cor da região</label>
+      <input type="color" id="cell-region-color" value="${cell.region?.color||'#7c6fc9'}">
+    </div>
+    <div class="form-group" style="margin-bottom:8px">
+      <label>🏙 Emoji da cidade</label>
+      <input type="text" id="cell-city-emoji" value="${cell.city?.emoji||''}" maxlength="4" placeholder="🏙 ou vazio p/ remover" style="font-size:16px">
+    </div>
+    <div class="form-group">
+      <label>Local vinculado</label>
+      <select id="cell-loc">
+        <option value="">— Nenhum —</option>
+        ${world.locations.map(l=>`<option value="${l.id}" ${cell.locId===l.id?'selected':''}>${l.icon} ${l.name}</option>`).join('')}
+      </select>
+    </div>
   `;
 }
 
@@ -1781,11 +1883,11 @@ function applyMapCellEdit(){
   const regionColor = document.getElementById('cell-region-color')?.value;
   const cityEmoji = document.getElementById('cell-city-emoji')?.value?.trim();
   const locId = document.getElementById('cell-loc')?.value;
-  if(contColor) c.continent = { color: contColor };
-  if(countryColor) c.country = { color: countryColor };
-  if(regionColor) c.region = { color: regionColor };
+  if(contColor && c.continent) c.continent.color = contColor;
+  if(countryColor && c.country) c.country.color = countryColor;
+  if(regionColor && c.region) c.region.color = regionColor;
   if(cityEmoji) c.city = { emoji: cityEmoji };
-  else if(cityEmoji==='') delete c.city;
+  else if(cityEmoji==='' && c.city) delete c.city;
   if(locId) c.locId = locId; else delete c.locId;
   drawMap();
   toast('Célula atualizada!','success');
@@ -1798,13 +1900,41 @@ function setTool(t){
   const isCity = (t==='city');
   document.getElementById('color-section').style.display = isCity?'none':'block';
   document.getElementById('city-emoji-section').style.display = isCity?'block':'none';
+  canvas.style.cursor = (t==='pan') ? 'grab' : 'crosshair';
   const defaults = { continent:'#4a7c4e', country:'#c9a84c', region:'#7c6fc9' };
-  if(defaults[t]){ document.getElementById('map-color').value = defaults[t]; document.getElementById('map-color-hex').value = defaults[t]; }
+  if(defaults[t]){
+    document.getElementById('map-color').value = defaults[t];
+    document.getElementById('map-color-hex').value = defaults[t];
+  }
+}
+
+function zoomMap(delta){
+  let newScale = world.map.scale + delta/10;
+  newScale = Math.min(2.5, Math.max(0.3, newScale));
+  world.map.scale = newScale;
+  gridSize = Math.round(28 * newScale);
+  document.getElementById('grid-size').value = gridSize;
+  document.getElementById('zoom-value').textContent = gridSize + 'px';
+  world.map.gridSize = gridSize;
+  drawMap();
+}
+
+function resetMapView(){
+  world.map.offsetX = 0;
+  world.map.offsetY = 0;
+  world.map.scale = 1;
+  gridSize = 28;
+  document.getElementById('grid-size').value = 28;
+  document.getElementById('zoom-value').textContent = '28px';
+  world.map.gridSize = 28;
+  drawMap();
 }
 
 function changeGridSize(){
   gridSize = +document.getElementById('grid-size').value;
   world.map.gridSize = gridSize;
+  world.map.scale = gridSize / 28;
+  document.getElementById('zoom-value').textContent = gridSize + 'px';
   drawMap();
 }
 
@@ -1828,7 +1958,7 @@ function clearMap(){
 function syncColor(hex){
   if(/^#[0-9a-fA-F]{6}$/.test(hex)) document.getElementById('map-color').value = hex;
 }
-document.getElementById('map-color')?.addEventListener('input', function(){
+document.getElementById('map-color').addEventListener('input', function(){
   document.getElementById('map-color-hex').value = this.value;
 });
 
@@ -1837,7 +1967,9 @@ function renderMapLocList(){
   if(!el) return;
   if(!world.locations.length){ el.innerHTML='<div style="color:var(--text3)">Crie locais primeiro</div>'; return; }
   el.innerHTML = world.locations.map(l=>`
-    <div style="display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;border-radius:3px" onclick="document.getElementById('map-color').value='${l.color}';document.getElementById('map-color-hex').value='${l.color}'" title="Usar cor de ${l.name}">
+    <div style="display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;border-radius:3px" 
+         onclick="document.getElementById('map-color').value='${l.color}';document.getElementById('map-color-hex').value='${l.color}'"
+         title="Usar cor de ${l.name}">
       <span style="width:10px;height:10px;border-radius:2px;background:${l.color};flex-shrink:0;border:1px solid rgba(255,255,255,.2)"></span>
       <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.icon} ${l.name}</span>
     </div>
@@ -1911,101 +2043,76 @@ function downloadBlob(blob,name){
 // ═══════════════════════════════════════
 // IMPORT .world
 // ═══════════════════════════════════════
-function triggerImport(){
-  document.getElementById('import-file-input').click();
-}
-
 async function importWorld(event){
   const file = event.target.files[0];
   if(!file) return;
-  try {
-    const ext = file.name.split('.').pop().toLowerCase();
-    if(ext === 'world' && window.JSZip){
+  try{
+    const isZip = file.name.endsWith('.world') || file.type === 'application/zip';
+    if(isZip && window.JSZip){
       const zip = await JSZip.loadAsync(file);
-      const loadJson = async (path) => { const f = zip.file(path); return f ? JSON.parse(await f.async('string')) : null; };
-      
-      const worldJson = await loadJson('data/world.json');
-      const erasJson = await loadJson('data/eras.json');
-      const eventsJson = await loadJson('data/events.json');
-      const charsJson = await loadJson('lores/characters.json');
-      const locsJson = await loadJson('lores/locations.json');
-      const mapJson = await loadJson('map/map.json');
-      
-      if(worldJson){
-        world.name = worldJson.name || 'Sem Título';
-        world.desc = worldJson.desc || '';
-        world.genre = worldJson.genre || 'Fantasia';
-        world.scale = worldJson.scale || 1;
-        world.calendar = worldJson.calendar || world.calendar;
-        world.tags = worldJson.tags || world.tags;
+      const worldFile = zip.file('data/world.json');
+      if(!worldFile) throw new Error('Arquivo world.json não encontrado no ZIP.');
+      const worldData = JSON.parse(await worldFile.async('string'));
+      const erasData = zip.file('data/eras.json') ? JSON.parse(await zip.file('data/eras.json').async('string')) : [];
+      const eventsData = zip.file('data/events.json') ? JSON.parse(await zip.file('data/events.json').async('string')) : [];
+      const charsData = zip.file('lores/characters.json') ? JSON.parse(await zip.file('lores/characters.json').async('string')) : [];
+      const locsData = zip.file('lores/locations.json') ? JSON.parse(await zip.file('lores/locations.json').async('string')) : [];
+      const mapFile = zip.file('map/map.json');
+      let mapData = { cells:{}, gridSize:28 };
+      if(mapFile){
+        const rawMap = JSON.parse(await mapFile.async('string'));
+        mapData.gridSize = rawMap.gridSize || 28;
+        mapData.cells = {};
+        (rawMap.cells || []).forEach(c => { mapData.cells[c.key] = c; delete c.key; });
       }
-      if(erasJson) world.eras = erasJson;
-      if(eventsJson) world.events = eventsJson;
-      if(charsJson) world.characters = charsJson;
-      if(locsJson) world.locations = locsJson;
-      if(mapJson){
-        world.map.gridSize = mapJson.gridSize || 28;
-        const cellsObj = {};
-        (mapJson.cells || []).forEach(c => { const {key, ...rest} = c; cellsObj[key] = rest; });
-        world.map.cells = cellsObj;
-      }
+      world = {
+        ...worldData,
+        eras: erasData,
+        events: eventsData,
+        characters: charsData,
+        locations: locsData,
+        map: mapData
+      };
     } else {
+      // Fallback JSON bundle
       const text = await file.text();
       const bundle = JSON.parse(text);
-      if(bundle.files){
-        const load = (path) => bundle.files[path] ? JSON.parse(bundle.files[path]) : null;
-        const worldJson = load('data/world.json');
-        const erasJson = load('data/eras.json');
-        const eventsJson = load('data/events.json');
-        const charsJson = load('lores/characters.json');
-        const locsJson = load('lores/locations.json');
-        const mapJson = load('map/map.json');
-        
-        if(worldJson){
-          world.name = worldJson.name || 'Sem Título';
-          world.desc = worldJson.desc || '';
-          world.genre = worldJson.genre || 'Fantasia';
-          world.scale = worldJson.scale || 1;
-          world.calendar = worldJson.calendar || world.calendar;
-          world.tags = worldJson.tags || world.tags;
-        }
-        if(erasJson) world.eras = erasJson;
-        if(eventsJson) world.events = eventsJson;
-        if(charsJson) world.characters = charsJson;
-        if(locsJson) world.locations = locsJson;
-        if(mapJson){
-          world.map.gridSize = mapJson.gridSize || 28;
+      if(bundle._format === 'WorldForge' && bundle.files){
+        const worldData = JSON.parse(bundle.files['data/world.json'] || '{}');
+        world = {
+          ...worldData,
+          eras: JSON.parse(bundle.files['data/eras.json'] || '[]'),
+          events: JSON.parse(bundle.files['data/events.json'] || '[]'),
+          characters: JSON.parse(bundle.files['lores/characters.json'] || '[]'),
+          locations: JSON.parse(bundle.files['lores/locations.json'] || '[]'),
+          map: JSON.parse(bundle.files['map/map.json'] || '{"cells":[],"gridSize":28}')
+        };
+        if(Array.isArray(world.map.cells)){
           const cellsObj = {};
-          (mapJson.cells || []).forEach(c => { const {key, ...rest} = c; cellsObj[key] = rest; });
+          world.map.cells.forEach(c => { cellsObj[c.key] = c; delete c.key; });
           world.map.cells = cellsObj;
         }
+      } else {
+        throw new Error('Formato de arquivo não reconhecido.');
       }
     }
-    document.getElementById('world-name-display').textContent = world.name;
+    document.getElementById('world-name-display').textContent = world.name || 'Sem Título';
     renderAll();
     renderDashboard();
     if(document.getElementById('view-map').classList.contains('active')) initMapCanvas();
-    else initMapCanvas(); // prepare map in background
-    toast('Mundo importado com sucesso!', 'success');
-    // Clear file input
-    event.target.value = '';
+    toast('Mundo importado com sucesso!','success');
   } catch(e){
-    toast('Erro ao importar: ' + e.message, 'error');
-    event.target.value = '';
+    toast('Erro na importação: '+e.message,'error');
   }
+  event.target.value = '';
 }
 
-// ═══════════════════════════════════════
-// SAVE TO DRIVE (placeholder)
-// ═══════════════════════════════════════
-async function saveToDrive(){
-  toast('Salvando no Google Drive...','success');
-  setTimeout(()=>{
-    localStorage.setItem('worldforge_save', JSON.stringify(world));
-    toast('Salvo localmente! Para salvar no Drive, exporte o .world e faça upload manual em drive.google.com/drive/folders/1tJV-BOEXRDDVIirhqEIhQMl4VeqqEDRZ','success');
-    exportWorld();
-  },500);
-}
+// Try to load JSZip
+(function(){
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+  document.head.appendChild(s);
+})();
 
 // ═══════════════════════════════════════
 // AUTO-SAVE & LOAD
@@ -2050,15 +2157,6 @@ autoLoad();
 renderAll();
 renderDashboard();
 setInterval(autoSave, 15000);
-
-// Load JSZip
-(function(){
-  if(!window.JSZip){
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-    document.head.appendChild(s);
-  }
-})();
 </script>
 </body>
 </html>
