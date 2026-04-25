@@ -7,7 +7,7 @@
 # WorldForge 
 ## Versão 1.0.0
 ### Plataforma Linux - Debian/Ubunto
-*Acesso em: N/A*
+*Acesso em: Releases*
 
 # WorldForge
 ## Versão 1.0.0
