@@ -493,7 +493,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
           <div class="tool-btn" id="tool-region" onclick="setTool('region')">③ REGIÃO</div>
           <div class="tool-btn" id="tool-city" onclick="setTool('city')">④ CIDADE</div>
           <hr class="divider">
-          <div class="tool-btn" id="tool-erase" onclick="setTool('erase')">✕ APAGAR CAMADA</div>
+          <div class="tool-btn" id="tool-erase" onclick="setTool('erase')">✕ APAGAR TOPO</div>
           <div class="tool-btn" id="tool-select" onclick="setTool('select')">↖ SELECIONAR</div>
           <hr class="divider">
           <div class="card-title">Cor</div>
@@ -511,7 +511,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
           </select>
           <hr class="divider">
           <button class="btn sm" onclick="clearMap()">🗑 Limpar Mapa</button>
-          <button class="btn sm mt-8" onclick="openModal('mapCellModal')">✏ Editar Célula</button>
+          <button class="btn sm mt-8" onclick="setTool('select');toast('Clique em uma célula pintada para editá-la','')">↖ Editar Célula</button>
           <hr class="divider">
           <div class="card-title" style="margin-top:4px">Locais no mapa</div>
           <div id="map-loc-list" style="font-size:12px;max-height:200px;overflow-y:auto"></div>
@@ -998,6 +998,23 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
       <button class="btn danger" id="detail-delete-btn">🗑 Excluir</button>
       <button class="btn" id="detail-edit-btn">✏ Editar</button>
       <button class="btn primary" onclick="closeModal('detailModal')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <h3 id="confirm-title">Confirmar</h3>
+      <button class="close-btn" onclick="closeModal('confirmModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-msg" style="font-size:14px;color:var(--text2)"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('confirmModal')">Cancelar</button>
+      <button class="btn danger" id="confirm-ok-btn">Confirmar</button>
     </div>
   </div>
 </div>
@@ -1909,11 +1926,14 @@ function paintCell(e){
   const key = cellKey(cx,cy);
 
   if(mapTool==='erase'){
-    // Apaga apenas a camada ativa, ou tudo se não houver layer específico
+    // Apaga a camada mais alta presente na célula
     if(!world.map.cells[key]) return;
-    delete world.map.cells[key][mapTool==='erase' ? eraseLayer() : mapTool];
-    // Se todas as camadas forem removidas, apaga a célula
-    if(!LAYER_ORDER.some(l=>world.map.cells[key][l])) delete world.map.cells[key];
+    const topLayer = [...LAYER_ORDER].reverse().find(l => world.map.cells[key]?.[l]);
+    if(topLayer){
+      delete world.map.cells[key][topLayer];
+      // Se todas as camadas forem removidas, apaga a célula
+      if(!LAYER_ORDER.some(l=>world.map.cells[key][l])) delete world.map.cells[key];
+    }
   } else {
     const color = document.getElementById('map-color').value;
     if(!world.map.cells[key]) world.map.cells[key] = {};
@@ -1945,6 +1965,9 @@ function selectCell(e){
     panel.innerHTML = '<div style="font-size:13px;color:var(--text3)">Célula vazia. Pinte primeiro com qualquer ferramenta.</div>';
     return;
   }
+
+  // Abre o modal automaticamente ao selecionar uma célula pintada
+  document.getElementById('mapCellModal').classList.add('open');
 
   // Mostra edição por camada
   panel.innerHTML = LAYER_ORDER.map(layer=>{
@@ -2005,6 +2028,8 @@ function selectCellByKey(key){
   const layers = world.map.cells[key];
   const panel = document.getElementById('cell-edit-panel');
   if(!layers){ panel.innerHTML='<div style="font-size:13px;color:var(--text3)">Célula vazia.</div>'; return; }
+  // Garante que o modal está aberto
+  document.getElementById('mapCellModal').classList.add('open');
   // Reusar a lógica de selectCell via fake event
   panel.innerHTML = LAYER_ORDER.map(layer=>{
     const l = layers[layer];
@@ -2056,12 +2081,25 @@ function changeGridSize(){
   drawMap();
 }
 
+function showConfirm(msg, onOk, title='Confirmar'){
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  const btn = document.getElementById('confirm-ok-btn');
+  btn.onclick = ()=>{ closeModal('confirmModal'); onOk(); };
+  document.getElementById('confirmModal').classList.add('open');
+}
+
 function clearMap(){
-  if(!confirm('Limpar todo o mapa? Todas as camadas serão removidas.')) return;
-  world.map.cells = {};
-  selectedCell = null;
-  drawMap();
-  toast('Mapa limpo','success');
+  showConfirm(
+    'Limpar todo o mapa? Todas as camadas serão removidas.',
+    ()=>{
+      world.map.cells = {};
+      selectedCell = null;
+      drawMap();
+      toast('Mapa limpo','success');
+    },
+    'Limpar Mapa'
+  );
 }
 
 function syncColor(hex){
