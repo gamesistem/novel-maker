@@ -493,6 +493,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
           <div class="tool-btn" id="tool-region" onclick="setTool('region')">③ REGIÃO</div>
           <div class="tool-btn" id="tool-city" onclick="setTool('city')">④ CIDADE</div>
           <hr class="divider">
+          <div class="tool-btn" id="tool-pan" onclick="setTool('pan')">✋ MOVER MAPA</div>
           <div class="tool-btn" id="tool-erase" onclick="setTool('erase')">✕ APAGAR TOPO</div>
           <div class="tool-btn" id="tool-select" onclick="setTool('select')">↖ SELECIONAR</div>
           <hr class="divider">
@@ -510,6 +511,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
             <option value="48">48px</option>
           </select>
           <hr class="divider">
+          <button class="btn sm" onclick="resetPan()">⌖ Centralizar</button>
           <button class="btn sm" onclick="clearMap()">🗑 Limpar Mapa</button>
           <button class="btn sm mt-8" onclick="setTool('select');toast('Clique em uma célula pintada para editá-la','')">↖ Editar Célula</button>
           <hr class="divider">
@@ -1721,6 +1723,7 @@ function renderTimeline(){
 const LAYER_ORDER = ['continent','country','region','city'];
 // Espessura de borda e inset para cada camada-borda
 let canvas, ctx, gridSize = 24;
+let panX = 0, panY = 0, isPanning = false, panStartX = 0, panStartY = 0;
 
 // Migração: converter formato antigo {color,type} → novo formato de layers
 function migrateMapCells(){
@@ -1749,18 +1752,42 @@ function initMapCanvas(){
   drawMap();
   canvas.onmousedown = mapMouseDown;
   canvas.onmousemove = mapMouseMove;
-  canvas.onmouseup = ()=>{ mapDrawing=false; };
-  canvas.onmouseleave = ()=>{ mapDrawing=false; };
+  canvas.onmouseup = mapMouseUp;
+  canvas.onmouseleave = mapMouseUp;
   canvas.onclick = mapClick;
   // Touch support
-  canvas.ontouchstart = e=>{ e.preventDefault(); mapDrawing=true; paintCell(e.touches[0]); };
-  canvas.ontouchmove  = e=>{ e.preventDefault(); if(mapDrawing&&mapTool!=='select') paintCell(e.touches[0]); };
-  canvas.ontouchend   = e=>{ e.preventDefault(); mapDrawing=false; if(mapTool==='select') selectCell(e.changedTouches[0]); };
+  canvas.ontouchstart = e=>{
+    e.preventDefault();
+    if(mapTool==='pan'){
+      isPanning=true;
+      panStartX=e.touches[0].clientX-panX;
+      panStartY=e.touches[0].clientY-panY;
+      return;
+    }
+    mapDrawing=true;
+    paintCell(e.touches[0]);
+  };
+  canvas.ontouchmove = e=>{
+    e.preventDefault();
+    if(isPanning){
+      panX=e.touches[0].clientX-panStartX;
+      panY=e.touches[0].clientY-panStartY;
+      drawMap();
+      return;
+    }
+    if(mapDrawing&&mapTool!=='select') paintCell(e.touches[0]);
+  };
+  canvas.ontouchend = e=>{
+    e.preventDefault();
+    isPanning=false;
+    mapDrawing=false;
+    if(mapTool==='select') selectCell(e.changedTouches[0]);
+  };
   renderMapLocList();
 }
 
 function cellKey(cx,cy){ return `${cx},${cy}`; }
-function getCellAt(x,y){ return { cx: Math.floor(x/gridSize), cy: Math.floor(y/gridSize) }; }
+function getCellAt(x,y){ return { cx: Math.floor((x-panX)/gridSize), cy: Math.floor((y-panY)/gridSize) }; }
 
 // Converte cor hex para rgba com alpha
 function hexToRgba(hex, alpha){
@@ -1784,6 +1811,9 @@ function drawMap(){
   // Fundo oceano/vazio
   ctx.fillStyle = '#0d1117';
   ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.save();
+  ctx.translate(panX, panY);
 
   // ── PASSO 1: preenche só a camada CONTINENT (base sólida) ──
   Object.entries(world.map.cells).forEach(([key, layers])=>{
@@ -1901,14 +1931,38 @@ function drawMap(){
     ctx.strokeRect(cx*gridSize+1, cy*gridSize+1, gridSize-2, gridSize-2);
     ctx.setLineDash([]);
   }
+
+  ctx.restore();
 }
 
 function mapMouseDown(e){
+  if(mapTool==='pan'){
+    isPanning = true;
+    panStartX = e.clientX - panX;
+    panStartY = e.clientY - panY;
+    canvas.style.cursor = 'grabbing';
+    return;
+  }
   if(mapTool==='select') return;
   mapDrawing = true;
   paintCell(e);
 }
-function mapMouseMove(e){ if(mapDrawing && mapTool!=='select') paintCell(e); }
+function mapMouseMove(e){
+  if(isPanning){
+    panX = e.clientX - panStartX;
+    panY = e.clientY - panStartY;
+    drawMap();
+    return;
+  }
+  if(mapDrawing && mapTool!=='select') paintCell(e);
+}
+function mapMouseUp(){
+  if(isPanning){
+    isPanning = false;
+    canvas.style.cursor = 'grab';
+  }
+  mapDrawing = false;
+}
 function mapClick(e){ if(mapTool==='select') selectCell(e); }
 
 function getEventPos(e){
@@ -2072,7 +2126,17 @@ function setTool(t){
   document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tool-'+t)?.classList.add('active');
   // Atualiza alvo do erase para a camada mais relevante
-  if(t!=='erase' && t!=='select') _eraseLayerTarget = t;
+  if(t!=='erase' && t!=='select' && t!=='pan') _eraseLayerTarget = t;
+  // Cursor
+  if(canvas){
+    if(t==='pan') canvas.style.cursor='grab';
+    else if(t==='select') canvas.style.cursor='default';
+    else canvas.style.cursor='crosshair';
+  }
+}
+
+function resetPan(){
+  panX=0; panY=0; drawMap();
 }
 
 function changeGridSize(){
