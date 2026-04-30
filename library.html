@@ -190,6 +190,19 @@
             margin-bottom: 12px;
         }
 
+        .key-badge {
+            font-size: 0.7rem;
+            color: #155724;
+            background-color: #d4edda;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            border: 1px solid #c3e6cb;
+            width: fit-content;
+        }
+
         .book-read-btn {
             margin-top: auto;
             width: 100%;
@@ -259,6 +272,39 @@
             font-family: 'Merriweather', serif;
             color: var(--accent);
             margin-bottom: 8px;
+        }
+
+        .book-description {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin: 12px 0;
+            line-height: 1.6;
+            max-height: 100px;
+            overflow-y: auto;
+            padding: 10px;
+            background: var(--bg-page);
+            border-radius: 8px;
+            white-space: pre-wrap;
+        }
+
+        .arts-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+
+        .arts-container img {
+            max-height: 100px;
+            border-radius: 8px;
+            border: 1px solid var(--border-light);
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        
+        .arts-container img:hover {
+            transform: scale(1.05);
         }
 
         .genre-badge {
@@ -573,59 +619,82 @@
 
     async function fetchLibrary() {
         try {
-            // 1. Descobrir a branch principal (main ou master)
-            const repoRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}`);
-            if (repoRes.ok) {
-                const repoData = await repoRes.json();
-                defaultBranch = repoData.default_branch || 'main';
-            }
+            // Buscar pelas releases ao invés da árvore de arquivos
+            const res = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases`);
+            if (!res.ok) throw new Error("Falha ao acessar as releases do repositório no GitHub");
+            const releases = await res.json();
 
-            // 2. Buscar a árvore completa de arquivos do repositório
-            const treeRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/trees/${defaultBranch}?recursive=1`);
-            if (!treeRes.ok) throw new Error("Falha ao acessar repositório do GitHub");
-            const treeData = await treeRes.json();
-            const files = treeData.tree;
+            const books = [];
 
-            // 3. Filtrar arquivos
-            const dgbooksFiles = files.filter(f => f.path.endsWith('.dgbooks'));
-            const imageFiles = files.filter(f => f.path.match(/\.(png|jpg|jpeg|webp)$/i));
+            for (const release of releases) {
+                const assets = release.assets || [];
 
-            // 4. Montar a lista de livros cruzando dados (nome do livro == nome da imagem)
-            const books = dgbooksFiles.map(fileObj => {
-                // Extrai o nome do arquivo sem extensão
-                const fileNameWithExt = fileObj.path.split('/').pop();
-                const baseName = fileNameWithExt.replace('.dgbooks', '');
+                // 1. Buscar o arquivo do livro (ignora os zips automáticos do source code)
+                const dgbooksAsset = assets.find(a => a.name.endsWith('.dgbooks') || a.name.endsWith('.dgbooks.zip'));
+                if (!dgbooksAsset) continue; // Se não tem o livro, ignora a release
 
-                // Procura uma imagem que tenha o mesmo nome base no repositório
-                const coverObj = imageFiles.find(img => img.path.split('/').pop().startsWith(baseName + '.'));
+                // 2. Buscar ativos visuais e chaves
+                const coverAsset = assets.find(a => /^capa\.(png|jpg|jpeg|webp)$/i.test(a.name));
+                const artsAssets = assets.filter(a => /^arte\d*\.(png|jpg|jpeg|webp)$/i.test(a.name)).slice(0, 3);
+                const keyAsset = assets.find(a => /^keybook\.(key|keystore)$/i.test(a.name));
+
+                // 3. Processar a descrição (Body) procurando pelos metadados em []
+                const bodyText = release.body || "";
+                const brackets = [];
+                const regex = /\[(.*?)\]/gs;
+                let match;
+                let lastIndex = 0;
                 
-                const coverUrl = coverObj 
-                    ? `https://raw.githubusercontent.com/gamesistem/novel-maker/${defaultBranch}/${coverObj.path}` 
-                    : null;
-                
-                const bookUrl = `https://raw.githubusercontent.com/gamesistem/novel-maker/${defaultBranch}/${fileObj.path}`;
+                while ((match = regex.exec(bodyText)) !== null) {
+                    brackets.push(match[1].trim());
+                    lastIndex = regex.lastIndex;
+                }
 
-                // Parse do nome recomendado: nomelivro_generoprincipal
-                const nameParts = baseName.split('_');
-                let title = nameParts[0];
-                // Formatar título (capitalizar primeira letra de cada palavra)
-                title = title.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                
-                let genre = nameParts.length > 1 ? nameParts[1] : 'Desconhecido';
+                /* Estrutura esperada:
+                 [0] Nome livro fantasia
+                 [1] Gênero principal
+                 [2] Gênero secundário
+                 [3] Gênero Terciário
+                 [4] Quantidades de páginas / atos
+                 [5] Autor Fantasia
+                 [6] Autor Real
+                 [7] Arte da capa
+                 [8] Descrição 
+                */
 
-                return {
+                const title = brackets[0] || release.name || release.tag_name;
+                const genreMain = brackets[1] || 'Desconhecido';
+                const author = brackets[5] || brackets[6] || 'Desconhecido';
+
+                // Juntar a descrição (pode estar nos colchetes a partir do 8, ou como texto solto no final)
+                let description = "";
+                if (brackets.length > 8) {
+                    description = brackets.slice(8).join('\n');
+                }
+                const trailingText = bodyText.substring(lastIndex).trim();
+                if (trailingText) {
+                    description += (description ? '\n\n' : '') + trailingText;
+                }
+
+                books.push({
+                    tag: release.tag_name,
                     title: title,
-                    genre: genre,
-                    coverUrl: coverUrl,
-                    bookUrl: bookUrl,
-                    rawFileObj: fileObj
-                };
-            });
+                    genre: genreMain,
+                    genres: [brackets[1], brackets[2], brackets[3]].filter(Boolean),
+                    author: author,
+                    description: description,
+                    coverUrl: coverAsset ? coverAsset.browser_download_url : null,
+                    bookUrl: dgbooksAsset.browser_download_url,
+                    artsUrls: artsAssets.map(a => a.browser_download_url),
+                    hasKey: !!keyAsset,
+                    rawRelease: release
+                });
+            }
 
             renderBooksGrid(books);
         } catch (error) {
             console.error(error);
-            libraryLoading.innerHTML = `<p style="color: red;">Erro ao carregar o repositório. Verifique a conexão ou o limite da API do GitHub.</p>`;
+            libraryLoading.innerHTML = `<p style="color: red;">Erro ao carregar as Releases. Verifique a conexão ou o limite da API do GitHub.</p>`;
         }
     }
 
@@ -635,7 +704,7 @@
         booksGrid.innerHTML = '';
 
         if(books.length === 0) {
-            booksGrid.innerHTML = `<p style="grid-column: 1/-1; text-align: center;">Nenhum livro (.dgbooks) encontrado no repositório.</p>`;
+            booksGrid.innerHTML = `<p style="grid-column: 1/-1; text-align: center;">Nenhum livro (.dgbooks) encontrado nas releases do repositório.</p>`;
             return;
         }
 
@@ -643,23 +712,24 @@
             const card = document.createElement('div');
             card.className = 'book-card';
             
-            // HTML do card
             const coverHtml = book.coverUrl 
                 ? `<img src="${book.coverUrl}" alt="Capa de ${book.title}" loading="lazy">`
                 : `<div class="book-cover-placeholder">📘</div>`;
+
+            const keyBadge = book.hasKey ? `<div class="key-badge">🔐 Licenciado</div>` : '';
 
             card.innerHTML = `
                 <div class="book-cover-container">
                     ${coverHtml}
                 </div>
                 <div class="book-info">
-                    <span class="book-genre">${escapeHtml(book.genre)}</span>
+                    <span class="book-genre" title="${book.tag}">${escapeHtml(book.genre)} <small style="color:var(--text-secondary); text-transform:none;">(${escapeHtml(book.tag)})</small></span>
                     <h3 class="book-title">${escapeHtml(book.title)}</h3>
+                    ${keyBadge}
                     <button class="btn btn-primary book-read-btn">Ler Livro</button>
                 </div>
             `;
 
-            // Evento de clique para baixar e abrir
             card.addEventListener('click', () => downloadAndOpenBook(book));
             booksGrid.appendChild(card);
         });
@@ -669,14 +739,12 @@
         try {
             globalLoader.style.display = 'flex';
             
-            // Fazer o download do arquivo RAW como Blob
             const response = await fetch(book.bookUrl);
-            if (!response.ok) throw new Error("Erro ao baixar o arquivo .dgbooks");
+            if (!response.ok) throw new Error("Erro ao baixar o arquivo do livro.");
             
             const blob = await response.blob();
             
-            // Injetar no fluxo do leitor
-            await importDGBooksBlob(blob, book.coverUrl); // Passamos a URL da capa como fallback
+            await importDGBooksBlob(blob, book); // Passando o objeto completo da release
             
             showReader();
         } catch(e) {
@@ -760,17 +828,26 @@
         const genresHtml = (book.genres || []).map(g => `<span class="genre-badge">${escapeHtml(g)}</span>`).join('');
         const contributorsHtml = (book.contributors || []).map(c => `<span class="genre-badge">👤 ${escapeHtml(c)}</span>`).join('');
         
+        const artsHtml = (book.artsUrls && book.artsUrls.length > 0) 
+            ? `<div class="arts-container">` + book.artsUrls.map(url => `<img src="${url}" title="Arte Oficial" onclick="window.open('${url}', '_blank')">`).join('') + `</div>` 
+            : '';
+
+        const authHtml = book.hasKey ? `<p style="color: #155724; font-weight: bold; background: #d4edda; padding: 4px 8px; border-radius: 6px; display: inline-block; font-size: 0.85rem; margin-top: 8px;">🔐 Chave Oficial Reconhecida (Licenciado)</p>` : '';
+        const descHtml = book.description ? `<div class="book-description">${escapeHtml(book.description)}</div>` : '';
+
         metadataPanel.innerHTML = `
             <div class="cover-box">${coverHtml}</div>
             <div class="info-box">
-                <h2>${escapeHtml(book.title || 'Sem título')}</h2>
+                <h2>${escapeHtml(book.title || 'Sem título')} <span style="font-size: 0.9rem; color: var(--text-secondary); font-weight: normal;">[${escapeHtml(book.tag || '')}]</span></h2>
                 <p><strong>✍️ Autor:</strong> ${escapeHtml(book.author || 'Desconhecido')}</p>
                 <p><strong>🏢 Selo:</strong> ${escapeHtml(companyName)}</p>
+                ${authHtml}
+                ${descHtml}
                 <p><strong>🔖 Gêneros:</strong></p>
                 <div>${genresHtml || '—'}</div>
                 <p><strong>🤝 Contribuidores:</strong></p>
                 <div>${contributorsHtml || 'Nenhum'}</div>
-                <p><strong>⚖️ Licença:</strong> ${book.isEditable ? "Código aberto" : "Protegido"}</p>
+                ${artsHtml}
             </div>
         `;
     }
@@ -872,8 +949,9 @@
     }
 
     // Processamento do Blob ao invés de um File do input
-    async function importDGBooksBlob(blob, fallbackCoverUrl) {
+    async function importDGBooksBlob(blob, releaseData) {
         const zip = new JSZip();
+        // O JSZip entende automaticamente o blob zipado, independente se veio como .dgbooks ou .dgbooks.zip
         const zipContent = await zip.loadAsync(blob);
         const jsonFile = zipContent.file("data/book.json");
         
@@ -882,7 +960,6 @@
         const jsonText = await jsonFile.async("string");
         const bookData = JSON.parse(jsonText);
         
-        // Tentativa de carregar capa de dentro do zip, se existir
         if (bookData.coverPath) {
             const coverFile = zipContent.file(bookData.coverPath);
             if (coverFile) {
@@ -893,16 +970,28 @@
             }
         }
         
-        // Se não achou no ZIP mas nós temos a URL externa, usamos a URL
-        if (!bookData.coverBase64 && fallbackCoverUrl) {
-            bookData.coverBase64 = fallbackCoverUrl;
+        // Substitutos usando dados capturados da Release no GitHub
+        if (!bookData.coverBase64 && releaseData && releaseData.coverUrl) {
+            bookData.coverBase64 = releaseData.coverUrl;
+        }
+        
+        bookData.title = bookData.title || (releaseData ? releaseData.title : "Sem título");
+        bookData.author = bookData.author || (releaseData ? releaseData.author : "Desconhecido");
+        
+        if (!bookData.genres || bookData.genres.length === 0) {
+            bookData.genres = releaseData ? releaseData.genres : [];
+        }
+
+        // Atrelando chaves, descrição e tags da release ao bookData principal
+        if (releaseData) {
+            bookData.hasKey = releaseData.hasKey;
+            bookData.artsUrls = releaseData.artsUrls;
+            bookData.description = releaseData.description;
+            bookData.tag = releaseData.tag;
         }
         
         bookData.chapters = bookData.chapters || [];
-        bookData.genres = bookData.genres || [];
         bookData.contributors = bookData.contributors || [];
-        bookData.title = bookData.title || "Sem título";
-        bookData.author = bookData.author || "Desconhecido";
         
         currentBook = bookData;
         currentChapterIndex = 0;
