@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HOM · Gerador de Perfil</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #f0d080;
+    --gold-dark: #7a5c1e;
+    --bg: #08090d;
+    --bg2: #0e1018;
+    --bg3: #151720;
+    --panel: #12141e;
+    --panel2: #1a1d2a;
+    --border: #2a2d3e;
+    --text: #d8dae8;
+    --text2: #8890b0;
+    --accent: #4a6cf7;
+    --accent2: #7c3aed;
+    --red: #ef4444;
+    --green: #22c55e;
+    --cyan: #06b6d4;
+
+    --rarity-F: #9ca3af;
+    --rarity-E: #6ee7b7;
+    --rarity-D: #60a5fa;
+    --rarity-C: #c084fc;
+    --rarity-B: #fbbf24;
+    --rarity-A: #f87171;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 40% at 20% 10%, rgba(74,108,247,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 90%, rgba(124,58,237,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 50% 50%, rgba(201,168,76,0.03) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 40%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 55% 20%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 75% 60%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 20% 75%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(1px 1px at 65% 85%, rgba(255,255,255,0.3) 0%, transparent 100%);
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    padding: 40px 0 30px;
+    position: relative;
+  }
+
+  header::after {
+    content: '';
+    display: block;
+    width: 200px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 20px auto 0;
+  }
+
+  .logo-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 6px;
+    color: var(--gold-dark);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(22px, 4vw, 42px);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 50%, var(--gold-dark) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+    letter-spacing: 2px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--text2);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+
+  /* Tab system */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 24px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text2);
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    box-shadow: 0 4px 15px rgba(74,108,247,0.3);
+  }
+
+  .tab-btn:hover:not(.active) {
+    color: var(--text);
+    background: var(--panel2);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Main layout */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 768px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  /* Cards */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold-dark), var(--gold), var(--gold-dark), transparent);
+  }
+
+  .card.full { grid-column: 1 / -1; }
+
+  .card-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--gold-dark);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .card-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  /* Form elements */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--gold-dark);
+    box-shadow: 0 0 0 3px rgba(201,168,76,0.1);
+  }
+
+  select option { background: var(--bg3); }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  /* Stat sliders */
+  .stat-group {
+    margin-bottom: 14px;
+  }
+
+  .stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text2);
+    font-weight: 600;
+  }
+
+  .stat-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    color: var(--gold);
+    font-weight: bold;
+    min-width: 30px;
+    text-align: right;
+  }
+
+  .stat-bar-bg {
+    width: 100%;
+    height: 6px;
+    background: var(--bg);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .stat-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bg);
+    padding: 0;
+    cursor: pointer;
+    border: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--gold);
+    cursor: pointer;
+    border: 2px solid var(--bg3);
+    box-shadow: 0 0 8px rgba(201,168,76,0.5);
+  }
+
+  input[type="range"]:focus { box-shadow: none; }
+
+  /* Checkbox */
+  .checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+
+  .checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--gold);
+  }
+
+  .checkbox-group label {
+    margin: 0;
+    cursor: pointer;
+    font-size: 14px;
+    text-transform: none;
+    letter-spacing: 0.5px;
+  }
+
+  /* Buff builder */
+  .buff-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .buff-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+  }
+
+  .buff-item label { font-size: 10px; margin-bottom: 4px; }
+  .buff-item select, .buff-item input { padding: 6px 10px; font-size: 13px; }
+
+  .buff-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg3);
+    border: 1px solid var(--gold-dark);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--gold);
+    margin: 4px;
+  }
+
+  .buff-preview {
+    min-height: 36px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .add-buff-btn {
+    background: transparent;
+    border: 1px solid var(--gold-dark);
+    border-radius: 6px;
+    color: var(--gold);
+    padding: 6px 14px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    margin-top: 10px;
+  }
+
+  .add-buff-btn:hover {
+    background: var(--gold-dark);
+    color: var(--bg);
+  }
+
+  /* Sprite upload */
+  .sprite-upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .sprite-upload-area:hover {
+    border-color: var(--gold-dark);
+    background: rgba(201,168,76,0.03);
+  }
+
+  .sprite-upload-area.has-file {
+    border-color: var(--green);
+    border-style: solid;
+  }
+
+  .sprite-upload-area input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    padding: 0;
+  }
+
+  .sprite-icon { font-size: 28px; }
+  .sprite-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--text2); }
+  .sprite-name { font-size: 12px; color: var(--green); font-family: 'Share Tech Mono', monospace; margin-top: 4px; }
+
+  .sprites-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  /* Generate button */
+  .generate-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--gold-dark), var(--gold), var(--gold-dark));
+    background-size: 200% 100%;
+    border: none;
+    border-radius: 12px;
+    color: var(--bg);
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  .generate-btn:hover {
+    background-position: right center;
+    box-shadow: 0 8px 30px rgba(201,168,76,0.4);
+    transform: translateY(-1px);
+  }
+
+  .generate-btn:active { transform: translateY(0); }
+
+  .generate-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%);
+    transform: translateX(-100%);
+    transition: transform 0.4s;
+  }
+
+  .generate-btn:hover::before { transform: translateX(100%); }
+
+  /* Preview panel */
+  .preview-card {
+    background: linear-gradient(145deg, var(--panel) 0%, var(--panel2) 100%);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 30px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .preview-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--rarity-color, linear-gradient(90deg, var(--gold-dark), var(--gold)));
+  }
+
+  .preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+  }
+
+  .preview-name {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold-light);
+  }
+
+  .rarity-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 16px;
+    font-weight: 900;
+  }
+
+  .preview-meta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .meta-chip {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--text2);
+    text-transform: uppercase;
+  }
+
+  .preview-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .preview-stat {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid var(--border);
+  }
+
+  .preview-stat-name {
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+
+  .preview-stat-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 16px;
+    font-weight: bold;
+  }
+
+  .preview-abilities {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .ability-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+
+  .ability-rank {
+    display: inline-block;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+  }
+
+  .ability-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .preview-buffs {
+    margin-bottom: 20px;
+  }
+
+  .preview-buffs-title {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 8px;
+  }
+
+  .preview-sprite {
+    width: 100%;
+    height: 180px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+
+  .sprites-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .sprite-preview-box {
+    text-align: center;
+  }
+
+  .sprite-preview-box img {
+    width: 100%;
+    height: 100px;
+    object-fit: contain;
+    border-radius: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+
+  .sprite-preview-box .sprite-type {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-top: 4px;
+  }
+
+  /* Nucleo preview */
+  .nucleo-preview {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    line-height: 2;
+    color: var(--green);
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  /* Reader section */
+  .reader-drop {
+    border: 3px dashed var(--border);
+    border-radius: 20px;
+    padding: 60px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .reader-drop:hover, .reader-drop.drag-over {
+    border-color: var(--gold);
+    background: rgba(201,168,76,0.05);
+  }
+
+  .reader-drop input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    padding: 0;
+  }
+
+  .drop-icon { font-size: 48px; margin-bottom: 16px; }
+  .drop-text { font-size: 16px; font-weight: 600; color: var(--text2); }
+  .drop-sub { font-size: 12px; color: var(--text2); margin-top: 4px; letter-spacing: 1px; opacity: 0.6; }
+
+  /* Loaded profile display */
+  .profile-display {
+    display: none;
+  }
+
+  .profile-display.show { display: block; }
+
+  .profile-hero-banner {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+  }
+
+  .profile-hero-content {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .profile-hero-sprite {
+    width: 200px;
+    height: 280px;
+    object-fit: contain;
+    border-radius: 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+  }
+
+  .no-sprite {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .profile-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* Status bar visual */
+  .stat-visual {
+    margin-bottom: 12px;
+  }
+
+  .stat-visual-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .stat-visual-name {
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text2);
+    font-weight: 600;
+  }
+
+  .stat-visual-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+  }
+
+  .stat-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .stat-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: var(--panel2);
+    border: 1px solid var(--green);
+    border-radius: 10px;
+    padding: 14px 20px;
+    font-size: 14px;
+    color: var(--green);
+    font-weight: 600;
+    letter-spacing: 1px;
+    z-index: 1000;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .toast.error {
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  /* Dividers */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 20px 0;
+  }
+
+  /* Rarity colors */
+  .rarity-A { color: var(--rarity-A); border-color: var(--rarity-A); }
+  .rarity-B { color: var(--rarity-B); border-color: var(--rarity-B); }
+  .rarity-C { color: var(--rarity-C); border-color: var(--rarity-C); }
+  .rarity-D { color: var(--rarity-D); border-color: var(--rarity-D); }
+  .rarity-E { color: var(--rarity-E); border-color: var(--rarity-E); }
+  .rarity-F { color: var(--rarity-F); border-color: var(--rarity-F); }
+
+  .bg-rarity-A { background: rgba(248,113,113,0.15); }
+  .bg-rarity-B { background: rgba(251,191,36,0.15); }
+  .bg-rarity-C { background: rgba(192,132,252,0.15); }
+  .bg-rarity-D { background: rgba(96,165,250,0.15); }
+  .bg-rarity-E { background: rgba(110,231,183,0.15); }
+  .bg-rarity-F { background: rgba(156,163,175,0.15); }
+
+  /* Help text */
+  .help-text {
+    font-size: 11px;
+    color: var(--text2);
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  .warning-box {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #fca5a5;
+    margin-top: 8px;
+  }
+
+  .info-box {
+    background: rgba(6,182,212,0.08);
+    border: 1px solid rgba(6,182,212,0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--cyan);
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold-dark); }
+
+  .section-number {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--gold-dark);
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="stars"></div>
+
+<div class="app">
+  <header>
+    <div class="logo-tag">Gamesistem · Official Tool</div>
+    <h1>Heroes of Multiverse</h1>
+    <p class="subtitle">Gerador de Perfil · .homperfil</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('generator')">⚔ Gerador</button>
+    <button class="tab-btn" onclick="switchTab('reader')">📂 Leitor</button>
+    <button class="tab-btn" onclick="switchTab('about')">📖 Formato</button>
+  </div>
+
+  <!-- GENERATOR TAB -->
+  <div id="tab-generator" class="tab-panel active">
+    <div class="grid">
+
+      <!-- Identidade -->
+      <div class="card">
+        <div class="card-title"><span class="section-number">01</span> Identidade</div>
+
+        <div class="form-group">
+          <label>Nome do Herói</label>
+          <input type="text" id="nome" placeholder="Ex: Kael'Dra Sombria" oninput="updatePreview()">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Raridade</label>
+            <select id="raridade" onchange="updatePreview()">
+              <option value="F">F — Comum</option>
+              <option value="E">E — Incomum</option>
+              <option value="D">D — Raro</option>
+              <option value="C">C — Épico</option>
+              <option value="B">B — Lendário</option>
+              <option value="A">A — Mítico</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Gênero</label>
+            <select id="genero" onchange="updatePreview()">
+              <option value="Masculino">Masculino</option>
+              <option value="Feminino">Feminino</option>
+              <option value="Não-binário">Não-binário</option>
+              <option value="Indefinido">Indefinido</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Idade</label>
+          <input type="number" id="idade" placeholder="Ex: 24" min="1" max="9999" oninput="updatePreview()">
+          <div id="idade-warning" class="warning-box" style="display:none">
+            ⚠ Menores de 18 anos têm HP Máximo limitado a 70.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="checkbox-group">
+            <input type="checkbox" id="estadoMagia" onchange="updatePreview()">
+            <label for="estadoMagia">Estado de Magia (habilita uso de Mana)</label>
+          </div>
+          <div class="help-text">Se marcado e o status de Mana for 0, será definido como 10 por padrão.</div>
+        </div>
+      </div>
+
+      <!-- Habilidades -->
+      <div class="card">
+        <div class="card-title"><span class="section-number">02</span> Habilidades</div>
+
+        <div class="form-group">
+          <label>Nome da Habilidade 1</label>
+          <input type="text" id="hab1nome" placeholder="Ex: Corte das Sombras" oninput="updatePreview()">
+        </div>
+        <div class="form-group">
+          <label>Rank da Habilidade 1</label>
+          <select id="hab1rank" onchange="updatePreview()">
+            <option value="F">F</option>
+            <option value="E">E</option>
+            <option value="C">C</option>
+            <option value="B">B</option>
+            <option value="A">A</option>
+          </select>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="form-group">
+          <label>Nome da Habilidade 2</label>
+          <input type="text" id="hab2nome" placeholder="Ex: Escudo Arcano" oninput="updatePreview()">
+        </div>
+        <div class="form-group">
+          <label>Rank da Habilidade 2</label>
+          <select id="hab2rank" onchange="updatePreview()">
+            <option value="F">F</option>
+            <option value="E">E</option>
+            <option value="C">C</option>
+            <option value="B">B</option>
+            <option value="A">A</option>
+          </select>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Buff Builder -->
+        <label>Buff de Status da Habilidade 1 <span style="color:var(--text2);font-size:10px;">(máx. 2 status afetados)</span></label>
+        <div class="buff-grid">
+          <div class="buff-item">
+            <label>Status</label>
+            <select id="buff1stat">
+              <option value="">—</option>
+              <option value="ATA">Ataque (ATA)</option>
+              <option value="DEF">Defesa (DEF)</option>
+              <option value="VID">Vida (VID)</option>
+              <option value="MAG">Magia (MAG)</option>
+              <option value="ARM">Aramina (ARM)</option>
+            </select>
+          </div>
+          <div class="buff-item">
+            <label>Efeito</label>
+            <select id="buff1tipo">
+              <option value="UP">UP</option>
+              <option value="DOWN">DOWN</option>
+            </select>
+          </div>
+          <div class="buff-item">
+            <label>Valor (%)</label>
+            <input type="number" id="buff1val" placeholder="10" min="1" max="100">
+          </div>
+        </div>
+        <div class="buff-grid" style="margin-top:8px;">
+          <div class="buff-item">
+            <label>Status 2</label>
+            <select id="buff2stat">
+              <option value="">—</option>
+              <option value="ATA">Ataque (ATA)</option>
+              <option value="DEF">Defesa (DEF)</option>
+              <option value="VID">Vida (VID)</option>
+              <option value="MAG">Magia (MAG)</option>
+              <option value="ARM">Aramina (ARM)</option>
+            </select>
+          </div>
+          <div class="buff-item">
+            <label>Efeito</label>
+            <select id="buff2tipo">
+              <option value="UP">UP</option>
+              <option value="DOWN">DOWN</option>
+            </select>
+          </div>
+          <div class="buff-item">
+            <label>Valor (%)</label>
+            <input type="number" id="buff2val" placeholder="0" min="1" max="100">
+          </div>
+        </div>
+        <div class="info-box" style="margin-top:10px;">
+          Exemplo: {ATA UP 10} & {DEF DOWN 30} — Deixe Status 2 vazio se não houver segundo buff.
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="card full">
+        <div class="card-title"><span class="section-number">03</span> Status Base</div>
+        <div class="grid">
+          <div>
+            <div id="stat-ataque" class="stat-group">
+              <div class="stat-header">
+                <span class="stat-label">⚔ Ataque</span>
+                <span class="stat-value" id="val-ataque">50</span>
+              </div>
+              <input type="range" min="1" max="100" value="50" id="sAtaque" oninput="updateStat('ataque')">
+            </div>
+            <div id="stat-defesa" class="stat-group">
+              <div class="stat-header">
+                <span class="stat-label">🛡 Defesa</span>
+                <span class="stat-value" id="val-defesa">50</span>
+              </div>
+              <input type="range" min="1" max="100" value="50" id="sDefesa" oninput="updateStat('defesa')">
+            </div>
+            <div id="stat-vida" class="stat-group">
+              <div class="stat-header">
+                <span class="stat-label">❤ Vida</span>
+                <span class="stat-value" id="val-vida">50</span>
+              </div>
+              <input type="range" min="1" max="100" value="50" id="sVida" oninput="updateStat('vida')">
+            </div>
+          </div>
+          <div>
+            <div id="stat-magia" class="stat-group">
+              <div class="stat-header">
+                <span class="stat-label">✨ Magia</span>
+                <span class="stat-value" id="val-magia">50</span>
+              </div>
+              <input type="range" min="1" max="100" value="50" id="sMagia" oninput="updateStat('magia')">
+            </div>
+            <div id="stat-aramina" class="stat-group">
+              <div class="stat-header">
+                <span class="stat-label">🌀 Aramina</span>
+                <span class="stat-value" id="val-aramina">50</span>
+              </div>
+              <input type="range" min="1" max="100" value="50" id="sAramina" oninput="updateStat('aramina')">
+            </div>
+            <div id="stat-mana" class="stat-group" style="opacity:0.4;">
+              <div class="stat-header">
+                <span class="stat-label">💠 Mana (se habilitado)</span>
+                <span class="stat-value" id="val-mana">0</span>
+              </div>
+              <input type="range" min="0" max="100" value="0" id="sMana" oninput="updateStat('mana')" disabled>
+            </div>
+          </div>
+        </div>
+        <div id="mana-info" class="info-box" style="display:none;">
+          💠 Mana habilitado! Se o valor for 0, será definido como 10 por padrão no perfil.
+        </div>
+      </div>
+
+      <!-- Sprites -->
+      <div class="card full">
+        <div class="card-title"><span class="section-number">04</span> Sprites</div>
+        <div class="sprites-grid">
+          <div>
+            <div class="sprite-upload-area" id="area-sprite1">
+              <input type="file" accept="image/*" id="sprite1" onchange="handleSprite(1)">
+              <div class="sprite-icon">🧍</div>
+              <div class="sprite-label">Sprite 1</div>
+              <div class="sprite-label" style="font-size:10px; opacity:0.6;">Corpo Completo</div>
+              <div class="sprite-name" id="sprite1-name">Nenhum arquivo</div>
+            </div>
+          </div>
+          <div>
+            <div class="sprite-upload-area" id="area-sprite2">
+              <input type="file" accept="image/*" id="sprite2" onchange="handleSprite(2)">
+              <div class="sprite-icon">🎨</div>
+              <div class="sprite-label">Sprite 2</div>
+              <div class="sprite-label" style="font-size:10px; opacity:0.6;">Arte do Personagem</div>
+              <div class="sprite-name" id="sprite2-name">Nenhum arquivo</div>
+            </div>
+          </div>
+          <div>
+            <div class="sprite-upload-area" id="area-sprite3">
+              <input type="file" accept="image/*" id="sprite3" onchange="handleSprite(3)">
+              <div class="sprite-icon">🏞</div>
+              <div class="sprite-label">Sprite 3</div>
+              <div class="sprite-label" style="font-size:10px; opacity:0.6;">Banner</div>
+              <div class="sprite-name" id="sprite3-name">Nenhum arquivo</div>
+            </div>
+          </div>
+        </div>
+        <div class="info-box" style="margin-top:12px;">
+          Formatos suportados: PNG, JPG, WEBP, GIF. As imagens serão salvas dentro da pasta <code>sprites/</code> no arquivo .homperfil.
+        </div>
+      </div>
+
+      <!-- Preview + Nucleo -->
+      <div class="card">
+        <div class="card-title"><span class="section-number">05</span> Preview do Perfil</div>
+        <div id="preview-content">
+          <div class="preview-header">
+            <div>
+              <div class="preview-name" id="prev-nome">—</div>
+              <div class="preview-meta" id="prev-meta"></div>
+            </div>
+            <div class="rarity-badge" id="prev-rarity-badge">—</div>
+          </div>
+          <div class="preview-stats" id="prev-stats"></div>
+          <div class="preview-abilities" id="prev-abilities"></div>
+          <div class="preview-buffs">
+            <div class="preview-buffs-title">Buff da Habilidade 1</div>
+            <div class="buff-preview" id="prev-buffs"></div>
+          </div>
+          <div class="sprites-preview-grid" id="prev-sprites"></div>
+        </div>
+      </div>
+
+      <!-- Nucleo Preview -->
+      <div class="card">
+        <div class="card-title"><span class="section-number">06</span> .nucleo Preview</div>
+        <div class="nucleo-preview" id="nucleo-preview">—</div>
+        <button class="generate-btn" style="margin-top:16px;" onclick="generateFile()">
+          ⬇ Gerar .homperfil
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- READER TAB -->
+  <div id="tab-reader" class="tab-panel">
+    <div class="card">
+      <div class="card-title">📂 Carregar .homperfil</div>
+      <div class="reader-drop" id="reader-drop">
+        <input type="file" accept=".homperfil,.zip" id="reader-file" onchange="loadProfile()">
+        <div class="drop-icon">📦</div>
+        <div class="drop-text">Arraste ou clique para carregar um .homperfil</div>
+        <div class="drop-sub">Formato ZIP com metadata/ e sprites/</div>
+      </div>
+    </div>
+
+    <div class="profile-display" id="profile-display">
+
+      <!-- Banner -->
+      <div class="card" style="margin-top:20px; padding:0; overflow:hidden;">
+        <img id="disp-banner" class="profile-hero-banner" src="" alt="" style="margin:0; border-radius:0; display:none;">
+        <div id="disp-no-banner" style="width:100%;height:80px;display:flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:3px;color:var(--text2);text-transform:uppercase;">Sem Banner</div>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <div class="profile-hero-content">
+          <div>
+            <img id="disp-sprite1" class="profile-hero-sprite" src="" alt="" style="display:none;">
+            <div id="disp-no-sprite1" class="no-sprite" style="height:280px;">🧍<br><span style="font-size:10px;color:var(--text2);">Sem Sprite 1</span></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+              <div>
+                <div id="disp-nome" style="font-family:'Cinzel Decorative',serif;font-size:24px;color:var(--gold-light);"></div>
+                <div id="disp-meta" class="preview-meta" style="margin-top:8px;"></div>
+              </div>
+              <div id="disp-rarity" class="rarity-badge"></div>
+            </div>
+            <div class="divider"></div>
+            <div id="disp-stats" style="margin:12px 0;"></div>
+            <div class="divider"></div>
+            <div id="disp-abilities" class="preview-abilities"></div>
+            <div id="disp-buffs-section">
+              <div class="preview-buffs-title" style="margin-bottom:6px;">Buff da Habilidade 1</div>
+              <div class="buff-preview" id="disp-buffs"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider" style="margin-top:20px;"></div>
+        <div style="margin-top:16px;">
+          <div class="card-title">Arte do Personagem</div>
+          <div style="display:flex;gap:16px;align-items:start;">
+            <div style="flex:1;text-align:center;">
+              <img id="disp-sprite2" src="" alt="" style="max-width:100%;max-height:300px;object-fit:contain;border-radius:10px;border:1px solid var(--border);background:var(--bg3);display:none;">
+              <div id="disp-no-sprite2" style="width:100%;height:200px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;">🎨 Sem Arte</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider" style="margin-top:16px;"></div>
+        <div style="margin-top:16px;">
+          <div class="card-title">.nucleo Raw</div>
+          <div class="nucleo-preview" id="disp-nucleo"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ABOUT TAB -->
+  <div id="tab-about" class="tab-panel">
+    <div class="card">
+      <div class="card-title">📖 Sobre o Formato .homperfil</div>
+      <div class="info-box" style="margin-bottom:16px;">
+        O arquivo <strong>.homperfil</strong> é um arquivo ZIP renomeado contendo dois diretórios principais.
+      </div>
+
+      <div style="font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--text2);line-height:2;background:var(--bg);border-radius:10px;padding:16px;border:1px solid var(--border);">
+meu_heroi.homperfil (ZIP)
+├── metadata/
+│   └── meu_heroi.nucleo        ← Dados do personagem (TXT)
+└── sprites/
+    ├── sprite_1.png            ← Corpo completo
+    ├── sprite_2.png            ← Arte do personagem
+    └── sprite_3.png            ← Banner
+      </div>
+
+      <div class="divider"></div>
+      <div class="card-title">Estrutura do .nucleo</div>
+      <div class="nucleo-preview">
+[Nome]
+[Raridade: A, B, C, D, E ou F]
+[Gênero]
+[Nome da Habilidade 1]
+[Nome da Habilidade 2]
+[Rank Hab1: A, B, C, E ou F]
+[Rank Hab2: A, B, C, E ou F]
+[Status]
+[S Ataque: 1-100]
+[S Defesa: 1-100]
+[S Vida: 1-100]
+[S Magia: 1-100]
+[S Aramina: 1-100]
+[Buff Hab1: ex. {ATA UP 10} & {DEF DOWN 30}]
+[Estado de Magia: true/false]
+[Idade]</div>
+
+      <div class="divider"></div>
+      <div class="card-title">Raridades</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;">
+        <span class="rarity-badge rarity-A bg-rarity-A" style="width:auto;padding:6px 16px;border-radius:8px;">A — Mítico</span>
+        <span class="rarity-badge rarity-B bg-rarity-B" style="width:auto;padding:6px 16px;border-radius:8px;">B — Lendário</span>
+        <span class="rarity-badge rarity-C bg-rarity-C" style="width:auto;padding:6px 16px;border-radius:8px;">C — Épico</span>
+        <span class="rarity-badge rarity-D bg-rarity-D" style="width:auto;padding:6px 16px;border-radius:8px;">D — Raro</span>
+        <span class="rarity-badge rarity-E bg-rarity-E" style="width:auto;padding:6px 16px;border-radius:8px;">E — Incomum</span>
+        <span class="rarity-badge rarity-F bg-rarity-F" style="width:auto;padding:6px 16px;border-radius:8px;">F — Comum</span>
+      </div>
+
+      <div class="divider"></div>
+      <div class="card-title">Regras de Sistema</div>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:10px;">
+        <li class="info-box">🧒 Personagens com menos de 18 anos têm HP Máximo limitado a 70.</li>
+        <li class="info-box">💠 Se Estado de Magia for <code>true</code> e o S Magia for 0, ele será considerado 10.</li>
+        <li class="info-box">🚫 Se Estado de Magia for <code>false</code>, o personagem é incapaz de usar mana mesmo que tenha pontos.</li>
+        <li class="info-box">⚡ O Buff da Habilidade 1 pode afetar no máximo 2 status simultaneamente.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">✓ Arquivo gerado com sucesso!</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+const spriteFiles = { 1: null, 2: null, 3: null };
+const spriteNames = { 1: 'sprite_1', 2: 'sprite_2', 3: 'sprite_3' };
+const spriteExts  = { 1: 'png', 2: 'png', 3: 'png' };
+
+// ── Tab switching ──────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ── Stat sliders ───────────────────────────────────────────────
+const statColors = {
+  ataque:  '#ef4444',
+  defesa:  '#3b82f6',
+  vida:    '#22c55e',
+  magia:   '#a855f7',
+  aramina: '#f59e0b',
+  mana:    '#06b6d4',
+};
+
+function updateStat(stat) {
+  const val = document.getElementById('s' + cap(stat)).value;
+  document.getElementById('val-' + stat).textContent = val;
+  updatePreview();
+}
+
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// ── Mana toggle ────────────────────────────────────────────────
+document.getElementById('estadoMagia').addEventListener('change', function() {
+  const on = this.checked;
+  const manaGroup = document.querySelector('#stat-mana');
+  const manaInput = document.getElementById('sMana');
+  const manaInfo  = document.getElementById('mana-info');
+  manaGroup.style.opacity = on ? '1' : '0.4';
+  manaInput.disabled = !on;
+  manaInfo.style.display = on ? 'block' : 'none';
+  updatePreview();
+});
+
+// ── Age warning ────────────────────────────────────────────────
+document.getElementById('idade').addEventListener('input', function() {
+  const w = document.getElementById('idade-warning');
+  w.style.display = (this.value && parseInt(this.value) < 18) ? 'block' : 'none';
+  updatePreview();
+});
+
+// ── Sprite handling ────────────────────────────────────────────
+function handleSprite(n) {
+  const file = document.getElementById('sprite' + n).files[0];
+  if (!file) return;
+  spriteFiles[n] = file;
+  const ext = file.name.split('.').pop().toLowerCase();
+  spriteExts[n] = ext;
+  const area = document.getElementById('area-sprite' + n);
+  area.classList.add('has-file');
+  document.getElementById('sprite' + n + '-name').textContent = file.name;
+  updatePreview();
+}
+
+// ── Buff builder ───────────────────────────────────────────────
+function buildBuffString() {
+  const parts = [];
+  const s1 = document.getElementById('buff1stat').value;
+  const t1 = document.getElementById('buff1tipo').value;
+  const v1 = document.getElementById('buff1val').value;
+  if (s1 && v1) parts.push('{' + s1 + ' ' + t1 + ' ' + v1 + '}');
+
+  const s2 = document.getElementById('buff2stat').value;
+  const t2 = document.getElementById('buff2tipo').value;
+  const v2 = document.getElementById('buff2val').value;
+  if (s2 && v2) parts.push('{' + s2 + ' ' + t2 + ' ' + v2 + '}');
+
+  return parts.length ? parts.join(' & ') : '{Nenhum}';
+}
+
+// ── Build .nucleo text ─────────────────────────────────────────
+function buildNucleo() {
+  const nome    = document.getElementById('nome').value || 'Herói';
+  const raridade= document.getElementById('raridade').value;
+  const genero  = document.getElementById('genero').value;
+  const hab1    = document.getElementById('hab1nome').value || 'Habilidade 1';
+  const hab2    = document.getElementById('hab2nome').value || 'Habilidade 2';
+  const rank1   = document.getElementById('hab1rank').value;
+  const rank2   = document.getElementById('hab2rank').value;
+  const ataque  = document.getElementById('sAtaque').value;
+  const defesa  = document.getElementById('sDefesa').value;
+  const vida    = document.getElementById('sVida').value;
+  const magia   = document.getElementById('sMagia').value;
+  const aramina = document.getElementById('sAramina').value;
+  const mana    = document.getElementById('sMana').value;
+  const buff    = buildBuffString();
+  const magiaOn = document.getElementById('estadoMagia').checked;
+  const idade   = document.getElementById('idade').value || '?';
+
+  return `${nome}
+${raridade}
+${genero}
+${hab1}
+${hab2}
+${rank1}
+${rank2}
+Status
+${ataque}
+${defesa}
+${vida}
+${magia}
+${aramina}
+${buff}
+${magiaOn ? 'true' : 'false'}
+${idade}`;
+}
+
+// ── Preview update ─────────────────────────────────────────────
+function updatePreview() {
+  const nome    = document.getElementById('nome').value || '—';
+  const raridade= document.getElementById('raridade').value;
+  const genero  = document.getElementById('genero').value;
+  const hab1    = document.getElementById('hab1nome').value || 'Habilidade 1';
+  const hab2    = document.getElementById('hab2nome').value || 'Habilidade 2';
+  const rank1   = document.getElementById('hab1rank').value;
+  const rank2   = document.getElementById('hab2rank').value;
+  const ataque  = document.getElementById('sAtaque').value;
+  const defesa  = document.getElementById('sDefesa').value;
+  const vida    = document.getElementById('sVida').value;
+  const magia   = document.getElementById('sMagia').value;
+  const aramina = document.getElementById('sAramina').value;
+  const mana    = document.getElementById('sMana').value;
+  const magiaOn = document.getElementById('estadoMagia').checked;
+  const idade   = document.getElementById('idade').value;
+  const buff    = buildBuffString();
+
+  // Name
+  document.getElementById('prev-nome').textContent = nome;
+
+  // Badge
+  const badge = document.getElementById('prev-rarity-badge');
+  badge.textContent = raridade;
+  badge.className = 'rarity-badge rarity-' + raridade + ' bg-rarity-' + raridade;
+
+  // Meta
+  document.getElementById('prev-meta').innerHTML =
+    `<span class="meta-chip">${genero}</span>` +
+    `<span class="meta-chip">Raridade ${raridade}</span>` +
+    (idade ? `<span class="meta-chip">${idade} anos</span>` : '') +
+    (magiaOn ? `<span class="meta-chip" style="color:var(--cyan);border-color:rgba(6,182,212,0.3);">✨ Magia ON</span>` : '');
+
+  // Stats
+  const statsArr = [
+    { label: '⚔ Ataque', val: ataque, color: statColors.ataque },
+    { label: '🛡 Defesa', val: defesa, color: statColors.defesa },
+    { label: '❤ Vida',   val: vida,   color: statColors.vida },
+    { label: '✨ Magia', val: magia,  color: statColors.magia },
+    { label: '🌀 Aramina', val: aramina, color: statColors.aramina },
+  ];
+  if (magiaOn) {
+    const manaEff = (parseInt(mana) === 0) ? 10 : mana;
+    statsArr.push({ label: '💠 Mana', val: manaEff, color: statColors.mana });
+  }
+  document.getElementById('prev-stats').innerHTML = statsArr.map(s =>
+    `<div class="preview-stat">
+      <span class="preview-stat-name">${s.label}</span>
+      <span class="preview-stat-val" style="color:${s.color}">${s.val}</span>
+    </div>`
+  ).join('');
+
+  // Abilities
+  document.getElementById('prev-abilities').innerHTML =
+    `<div class="ability-card">
+      <span class="ability-rank rarity-${rank1} bg-rarity-${rank1}">${rank1}</span>
+      <div class="ability-name">${hab1}</div>
+    </div>
+    <div class="ability-card">
+      <span class="ability-rank rarity-${rank2} bg-rarity-${rank2}">${rank2}</span>
+      <div class="ability-name">${hab2}</div>
+    </div>`;
+
+  // Buffs
+  const buffParts = buff.split(' & ').filter(b => b && b !== '{Nenhum}');
+  document.getElementById('prev-buffs').innerHTML = buffParts.length
+    ? buffParts.map(b => `<span class="buff-tag">${b}</span>`).join('')
+    : '<span style="color:var(--text2);font-size:12px;">Nenhum buff definido</span>';
+
+  // Sprites preview
+  const spriteTypes = ['Corpo Completo', 'Arte', 'Banner'];
+  document.getElementById('prev-sprites').innerHTML = [1,2,3].map(n =>
+    `<div class="sprite-preview-box">
+      ${spriteFiles[n]
+        ? `<img src="${URL.createObjectURL(spriteFiles[n])}" style="width:100%;height:100px;object-fit:contain;border-radius:6px;background:var(--bg3);border:1px solid var(--border);">`
+        : `<div style="width:100%;height:100px;background:var(--bg3);border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:20px;">?</div>`
+      }
+      <div class="sprite-type">Sprite ${n} · ${spriteTypes[n-1]}</div>
+    </div>`
+  ).join('');
+
+  // Nucleo
+  document.getElementById('nucleo-preview').textContent = buildNucleo();
+}
+
+// ── Generate .homperfil ────────────────────────────────────────
+async function generateFile() {
+  const nome = document.getElementById('nome').value;
+  if (!nome.trim()) { showToast('⚠ Insira o nome do herói!', true); return; }
+
+  const zip = new JSZip();
+  const nucleo = buildNucleo();
+  const safeName = nome.trim().replace(/[^a-zA-Z0-9_\-áéíóúÁÉÍÓÚãõÃÕâêîôûÂÊÎÔÛç]/g, '_');
+
+  // metadata
+  const meta = zip.folder('metadata');
+  meta.file(safeName + '.nucleo', nucleo);
+
+  // sprites
+  const sprites = zip.folder('sprites');
+  for (let n = 1; n <= 3; n++) {
+    if (spriteFiles[n]) {
+      const buf = await spriteFiles[n].arrayBuffer();
+      sprites.file('sprite_' + n + '.' + spriteExts[n], buf);
+    }
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = safeName + '.homperfil';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showToast('✓ ' + safeName + '.homperfil gerado!');
+}
+
+// ── Load .homperfil ────────────────────────────────────────────
+async function loadProfile() {
+  const file = document.getElementById('reader-file').files[0];
+  if (!file) return;
+
+  try {
+    const zip = await JSZip.loadAsync(file);
+    let nucleoText = null;
+    let nucleoFile = null;
+
+    // Find .nucleo
+    zip.forEach((path, f) => {
+      if (path.startsWith('metadata/') && path.endsWith('.nucleo')) {
+        nucleoFile = f;
+      }
+    });
+
+    if (!nucleoFile) { showToast('⚠ Arquivo .nucleo não encontrado!', true); return; }
+    nucleoText = await nucleoFile.async('text');
+
+    const lines = nucleoText.split('\n').map(l => l.trim());
+    const [nome, raridade, genero, hab1, hab2, rank1, rank2, _statusLabel,
+           ataque, defesa, vida, magia, aramina, buff, magiaStr, idade] = lines;
+
+    // Display
+    document.getElementById('profile-display').classList.add('show');
+    document.getElementById('disp-nome').textContent = nome || '—';
+
+    // Badge
+    const r = (raridade || 'F').trim();
+    const dispR = document.getElementById('disp-rarity');
+    dispR.textContent = r;
+    dispR.className = 'rarity-badge rarity-' + r + ' bg-rarity-' + r;
+
+    // Meta
+    const magiaOn = (magiaStr || '').trim().toLowerCase() === 'true';
+    document.getElementById('disp-meta').innerHTML =
+      `<span class="meta-chip">${genero || '?'}</span>` +
+      `<span class="meta-chip">Raridade ${r}</span>` +
+      (idade ? `<span class="meta-chip">${idade.trim()} anos</span>` : '') +
+      (magiaOn ? `<span class="meta-chip" style="color:var(--cyan);">✨ Magia ON</span>` : '');
+
+    // Stats
+    const statsData = [
+      { label: '⚔ Ataque', val: ataque, color: statColors.ataque },
+      { label: '🛡 Defesa', val: defesa, color: statColors.defesa },
+      { label: '❤ Vida',   val: vida,   color: statColors.vida },
+      { label: '✨ Magia', val: magia,  color: statColors.magia },
+      { label: '🌀 Aramina', val: aramina, color: statColors.aramina },
+    ];
+    if (magiaOn) {
+      const manaEff = (parseInt(magia) === 0) ? 10 : parseInt(magia);
+      statsData.push({ label: '💠 Mana', val: manaEff, color: statColors.mana });
+    }
+    document.getElementById('disp-stats').innerHTML = statsData.map(s =>
+      `<div class="stat-visual">
+        <div class="stat-visual-header">
+          <span class="stat-visual-name">${s.label}</span>
+          <span class="stat-visual-val" style="color:${s.color}">${s.val}</span>
+        </div>
+        <div class="stat-bar">
+          <div class="stat-fill" style="width:${s.val}%;background:${s.color};"></div>
+        </div>
+      </div>`
+    ).join('');
+
+    // Abilities
+    const r1 = (rank1 || 'F').trim();
+    const r2 = (rank2 || 'F').trim();
+    document.getElementById('disp-abilities').innerHTML =
+      `<div class="ability-card">
+        <span class="ability-rank rarity-${r1} bg-rarity-${r1}">${r1}</span>
+        <div class="ability-name">${hab1 || '?'}</div>
+      </div>
+      <div class="ability-card">
+        <span class="ability-rank rarity-${r2} bg-rarity-${r2}">${r2}</span>
+        <div class="ability-name">${hab2 || '?'}</div>
+      </div>`;
+
+    // Buffs
+    const buffParts = (buff || '').split(' & ').filter(b => b && b !== '{Nenhum}');
+    document.getElementById('disp-buffs').innerHTML = buffParts.length
+      ? buffParts.map(b => `<span class="buff-tag">${b}</span>`).join('')
+      : '<span style="color:var(--text2);font-size:12px;">Nenhum buff</span>';
+
+    // Sprites
+    async function loadSprite(key, imgId, noId) {
+      let spriteFile = null;
+      zip.forEach((path, f) => {
+        if (path.startsWith('sprites/sprite_' + key + '.') || path === 'sprites/sprite_' + key) {
+          spriteFile = f;
+        }
+      });
+      if (spriteFile) {
+        const blob = await spriteFile.async('blob');
+        const url = URL.createObjectURL(blob);
+        const img = document.getElementById(imgId);
+        const noEl = document.getElementById(noId);
+        img.src = url;
+        img.style.display = 'block';
+        if (noEl) noEl.style.display = 'none';
+      }
+    }
+
+    await loadSprite(1, 'disp-sprite1', 'disp-no-sprite1');
+    await loadSprite(2, 'disp-sprite2', 'disp-no-sprite2');
+    // Banner (sprite 3)
+    let bannerFile = null;
+    zip.forEach((path, f) => {
+      if (path.startsWith('sprites/sprite_3')) bannerFile = f;
+    });
+    if (bannerFile) {
+      const blob = await bannerFile.async('blob');
+      const url = URL.createObjectURL(blob);
+      const bi = document.getElementById('disp-banner');
+      bi.src = url;
+      bi.style.display = 'block';
+      document.getElementById('disp-no-banner').style.display = 'none';
+    }
+
+    // Nucleo raw
+    document.getElementById('disp-nucleo').textContent = nucleoText;
+
+    showToast('✓ Perfil carregado: ' + nome);
+    document.getElementById('disp-nome').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  } catch(e) {
+    console.error(e);
+    showToast('⚠ Erro ao ler o arquivo: ' + e.message, true);
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────
+function showToast(msg, err = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (err ? ' error' : '');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ── Drag & drop ────────────────────────────────────────────────
+const drop = document.getElementById('reader-drop');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault();
+  drop.classList.remove('drag-over');
+  const files = e.dataTransfer.files;
+  if (files.length) {
+    const dt = new DataTransfer();
+    dt.items.add(files[0]);
+    document.getElementById('reader-file').files = dt.files;
+    loadProfile();
+  }
+});
+
+// ── Init ───────────────────────────────────────────────────────
+updatePreview();
+
+// Live buff updates
+['buff1stat','buff1tipo','buff1val','buff2stat','buff2tipo','buff2val'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updatePreview);
+  document.getElementById(id).addEventListener('change', updatePreview);
+});
+</script>
+</body>
+</html>
