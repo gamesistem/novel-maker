@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>DGBooks Visualizador & Conversor PDF 📖</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #f5f2ea;
+      font-family: 'Georgia', 'Times New Roman', 'Segoe UI', serif;
+      color: #1f2a2e;
+      padding: 30px 20px;
+    }
+
+    /* container principal */
+    .app-container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #fffdf9;
+      border-radius: 24px;
+      box-shadow: 0 20px 35px -12px rgba(0,0,0,0.2);
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+
+    /* cabeçalho */
+    .toolbar {
+      background: #2c3e2f;
+      color: #f9eed7;
+      padding: 18px 28px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      border-bottom: 3px solid #d4af7a;
+    }
+
+    .logo h1 {
+      font-size: 1.7rem;
+      letter-spacing: -0.5px;
+      font-weight: 600;
+      font-family: system-ui, sans-serif;
+    }
+    .logo span {
+      font-weight: 300;
+      color: #e6cba0;
+    }
+    .badge-view {
+      background: #d4af7a20;
+      backdrop-filter: blur(4px);
+      padding: 6px 14px;
+      border-radius: 40px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      border: 1px solid #d4af7a;
+      color: #f9eed7;
+    }
+    .btn-group {
+      display: flex;
+      gap: 12px;
+    }
+    button {
+      background: #f4e8d8;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-family: system-ui, sans-serif;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #2c3e2f;
+    }
+    button.primary {
+      background: #d4af7a;
+      color: #1f2a1b;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    button.primary:hover {
+      background: #c49a6c;
+      transform: translateY(-2px);
+    }
+    button:hover {
+      background: #e9dbc8;
+      transform: translateY(-1px);
+    }
+    button:active {
+      transform: translateY(1px);
+    }
+
+    /* área de upload */
+    .upload-zone {
+      background: #fef8ef;
+      border: 2px dashed #cbbd9c;
+      border-radius: 28px;
+      margin: 28px 32px;
+      padding: 38px 20px;
+      text-align: center;
+      transition: 0.2s;
+      cursor: pointer;
+    }
+    .upload-zone.drag-over {
+      background: #f3ecdf;
+      border-color: #b48b4b;
+    }
+    .upload-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+    .upload-zone p {
+      color: #5a4d3b;
+      font-size: 0.95rem;
+      margin-top: 8px;
+    }
+    .file-info {
+      font-size: 0.8rem;
+      color: #7e6b50;
+      margin-top: 12px;
+    }
+    input[type="file"] {
+      display: none;
+    }
+
+    /* preview BOOK */
+    .book-preview-wrapper {
+      padding: 20px 40px 50px 40px;
+      background: #fffdf7;
+      transition: 0.2s;
+    }
+
+    .book-view {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 5px 40px rgba(0,0,0,0.05);
+      border-radius: 12px;
+      padding: 20px 30px 40px 30px;
+    }
+
+    /* estilos do livro (final) */
+    .book-cover {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .cover-img {
+      max-width: 100%;
+      max-height: 500px;
+      border-radius: 12px;
+      box-shadow: 0 20px 30px -12px rgba(0,0,0,0.3);
+      border: 1px solid #e2d9ce;
+    }
+    .cover-placeholder {
+      background: linear-gradient(145deg, #4a5b3e, #2c3e2f);
+      color: #f2e2c6;
+      padding: 60px 20px;
+      border-radius: 12px;
+      font-size: 1.7rem;
+      font-weight: bold;
+      text-align: center;
+      font-family: system-ui;
+    }
+
+    .title-page {
+      text-align: center;
+      margin: 40px 0 30px;
+      border-bottom: 1px solid #e6dccc;
+      padding-bottom: 25px;
+    }
+    .book-title {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+    .book-sub {
+      font-size: 1.1rem;
+      color: #5f6b5b;
+      margin-top: 8px;
+    }
+    .book-author {
+      font-size: 1.2rem;
+      margin-top: 12px;
+      font-style: italic;
+      color: #5c4b32;
+    }
+    .metadata-line {
+      font-size: 0.85rem;
+      color: #776b54;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin: 15px 0;
+    }
+    .genres {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .genre-tag {
+      background: #f0e7da;
+      padding: 4px 14px;
+      border-radius: 40px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .synopsis {
+      background: #fef8ef;
+      padding: 24px 28px;
+      border-radius: 24px;
+      margin: 30px 0;
+      font-size: 1rem;
+      line-height: 1.65;
+      color: #2c2b26;
+      border-left: 6px solid #d4af7a;
+    }
+
+    .section-divider {
+      margin: 40px 0 20px;
+      border-top: 1px solid #e2d5c0;
+    }
+
+    .frontmatter-block {
+      background: #f9f4ea;
+      border-radius: 24px;
+      padding: 20px 28px;
+      margin: 30px 0;
+    }
+    .dedication, .epigraph, .thanks {
+      margin: 20px 0;
+    }
+    .thanks h3, .dedication h3, .epigraph h3 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      border-left: 4px solid #b48b4b;
+      padding-left: 14px;
+      margin-bottom: 12px;
+    }
+
+    .chapter {
+      margin-top: 50px;
+      page-break-before: always;
+      break-before: page;
+    }
+    .chapter:first-of-type {
+      page-break-before: avoid;
+      break-before: avoid;
+    }
+    .chapter-title {
+      font-size: 1.9rem;
+      font-weight: 700;
+      margin: 25px 0 8px;
+      color: #2f3d2b;
+    }
+    .chapter-sub {
+      font-size: 1rem;
+      color: #7e6a4e;
+      margin-bottom: 15px;
+      font-style: italic;
+    }
+    .chapter-cover-img {
+      margin: 15px 0;
+      max-width: 100%;
+      max-height: 300px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .page-item {
+      margin: 28px 0;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #f0e5d8;
+    }
+    .page-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #4b5a3c;
+      margin-bottom: 8px;
+    }
+    .page-content {
+      font-size: 1rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .page-image {
+      margin: 16px 0;
+      text-align: center;
+    }
+    .page-image img {
+      max-width: 100%;
+      max-height: 450px;
+      border-radius: 12px;
+      box-shadow: 0 5px 14px rgba(0,0,0,0.1);
+    }
+    .img-caption {
+      font-size: 0.8rem;
+      color: #8b775a;
+      margin-top: 8px;
+      font-style: italic;
+    }
+    .page-badge {
+      display: inline-block;
+      background: #e3d9cc;
+      border-radius: 30px;
+      font-size: 0.7rem;
+      padding: 2px 12px;
+      margin-bottom: 10px;
+      font-weight: normal;
+    }
+
+    /* rodapé e status */
+    .status-area {
+      margin: 20px 32px 32px;
+      font-size: 0.85rem;
+      padding: 10px 16px;
+      background: #f6f0e6;
+      border-radius: 50px;
+    }
+    .loader {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #cbbd9c;
+      border-radius: 50%;
+      border-top-color: #5f4c2b;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* impressão estilo livro */
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+        margin: 0;
+      }
+      .toolbar, .upload-zone, .btn-group, .status-area, .import-header, .no-print {
+        display: none !important;
+      }
+      .app-container {
+        box-shadow: none;
+        margin: 0;
+        padding: 0;
+        background: white;
+      }
+      .book-preview-wrapper {
+        padding: 0;
+        margin: 0;
+      }
+      .book-view {
+        padding: 0.4in;
+        max-width: 100%;
+        box-shadow: none;
+      }
+      .chapter {
+        page-break-before: always;
+        break-before: page;
+      }
+      .chapter:first-of-type {
+        page-break-before: avoid;
+      }
+      .page-item {
+        break-inside: avoid;
+      }
+      .cover-img, .chapter-cover-img {
+        max-width: 70%;
+      }
+      a, .btn, button {
+        text-decoration: none;
+      }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #9f8a6e;
+    }
+    footer {
+      font-size: 0.7rem;
+      text-align: center;
+      padding: 20px;
+      border-top: 1px solid #e9dfd0;
+      color: #ad9b80;
+    }
+  </style>
+</head>
+<body>
+<div class="app-container">
+  <div class="toolbar">
+    <div class="logo">
+      <h1>DG<span>Books</span> <span style="font-size:0.9rem;">📘 Visualizador</span></h1>
+    </div>
+    <div class="badge-view">🎯 Modo Autor — visual final do livro</div>
+    <div class="btn-group no-print">
+      <button id="pdfBtn" class="primary">📄 Gerar PDF (Imprimir)</button>
+    </div>
+  </div>
+
+  <!-- área importação -->
+  <div id="uploadZone" class="upload-zone no-print">
+    <div class="upload-icon">📚📂</div>
+    <p><strong>Clique ou arraste um arquivo .dgbooks</strong></p>
+    <p style="font-size:0.85rem;">Arquivo exportado pelo editor DGBooks Creator</p>
+    <div class="file-info">✅ Formato próprio: metadados + capítulos + imagens</div>
+    <input type="file" id="fileInput" accept=".dgbooks,.zip" />
+  </div>
+
+  <!-- área de loading e preview -->
+  <div id="previewContainer" class="book-preview-wrapper">
+    <div class="empty-state">
+      📖 Nenhum livro carregado.<br>
+      Envie um arquivo <strong>.dgbooks</strong> para visualizar o livro completo e gerar PDF.
+    </div>
+  </div>
+
+  <div id="statusMsg" class="status-area no-print" style="display: none;"></div>
+  <footer class="no-print">📖 Visualização fiel à estrutura do livro — pronto para impressão e conversão PDF</footer>
+</div>
+
+<script>
+  (function(){
+    // Referências DOM
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+    const previewContainer = document.getElementById('previewContainer');
+    const statusDiv = document.getElementById('statusMsg');
+    const pdfBtn = document.getElementById('pdfBtn');
+
+    let currentBookData = null;       // guarda dados renderizados para recriar preview? manter não necessário
+
+    // helpers
+    function showStatus(msg, isError = false, isLoading = false) {
+      statusDiv.style.display = 'flex';
+      statusDiv.style.alignItems = 'center';
+      statusDiv.style.gap = '10px';
+      statusDiv.innerHTML = '';
+      if(isLoading) {
+        statusDiv.innerHTML = `<span class="loader"></span> ${msg}`;
+      } else {
+        statusDiv.innerHTML = `${isError ? '⚠️ ' : '✅ '} ${msg}`;
+        statusDiv.style.background = isError ? '#ffe8e5' : '#eef3e3';
+        setTimeout(() => {
+          if(statusDiv.style.display !== 'none') {
+            // delay fade
+            setTimeout(() => { if(statusDiv && !isLoading) statusDiv.style.display = 'none'; }, 2800);
+          }
+        }, 2800);
+      }
+      if(!isLoading) setTimeout(() => { if(statusDiv && !isLoading) statusDiv.style.display = 'none'; }, 3200);
+    }
+
+    function clearStatus() { statusDiv.style.display = 'none'; }
+
+    // Renderização completa do livro a partir dos dados parseados
+    function renderBook(bookData) {
+      const { meta, frontmatter, coverSrc, coverMime, chapters, totalPages, genresList } = bookData;
+      let html = `<div class="book-view">`;
+
+      // ========= CAPA ==========
+      html += `<div class="book-cover">`;
+      if(coverSrc) {
+        html += `<img class="cover-img" src="${coverSrc}" alt="Capa do livro">`;
+      } else {
+        html += `<div class="cover-placeholder">📖 ${escapeHtml(meta.title || 'Título')}<br><span style="font-size:0.9rem;">Capa não disponível</span></div>`;
+      }
+      html += `</div>`;
+
+      // ========= página de rosto / título ==========
+      html += `<div class="title-page">
+        <div class="book-title">${escapeHtml(meta.title || 'Sem título')}</div>
+        ${meta.subtitle ? `<div class="book-sub">${escapeHtml(meta.subtitle)}</div>` : ''}
+        <div class="book-author">por ${escapeHtml(meta.author || 'Autor desconhecido')}</div>
+        ${meta.coauthor ? `<div class="book-author" style="font-size:0.9rem;">com ${escapeHtml(meta.coauthor)}</div>` : ''}
+        <div class="metadata-line">
+          ${meta.publisher ? `<span>📘 ${escapeHtml(meta.publisher)}</span>` : ''}
+          ${meta.publication_date ? `<span>📅 ${escapeHtml(meta.publication_date)}</span>` : ''}
+          ${meta.isbn ? `<span>📚 ISBN ${escapeHtml(meta.isbn)}</span>` : ''}
+        </div>
+        ${genresList && genresList.length ? `<div class="genres">${genresList.map(g => `<span class="genre-tag">${escapeHtml(g)}</span>`).join('')}</div>` : ''}
+      </div>`;
+
+      // Sinopse
+      if(meta.synopsis) {
+        html += `<div class="synopsis">${escapeHtml(meta.synopsis).replace(/\n/g,'<br>')}</div>`;
+      }
+
+      // ========= frontmatter (dedicatória, epígrafe, agradecimentos) ==========
+      let hasFront = false;
+      let frontHtml = `<div class="frontmatter-block">`;
+      if(frontmatter.dedication && frontmatter.dedication.trim()) {
+        hasFront = true;
+        frontHtml += `<div class="dedication"><h3>🌸 Dedicatória</h3><p style="font-style:italic;">${escapeHtml(frontmatter.dedication).replace(/\n/g,'<br>')}</p></div>`;
+      }
+      if(frontmatter.epigraph && (frontmatter.epigraph.text || frontmatter.epigraph.author)) {
+        hasFront = true;
+        let epiText = frontmatter.epigraph.text || '';
+        let epiAuthor = frontmatter.epigraph.author || '';
+        frontHtml += `<div class="epigraph"><h3>✧ Epígrafe</h3><blockquote style="margin:0;padding-left:20px;border-left:3px solid #d4af7a;">${escapeHtml(epiText).replace(/\n/g,'<br>')}<br>${epiAuthor ? `— ${escapeHtml(epiAuthor)}` : ''}</blockquote></div>`;
+      }
+      if(frontmatter.thanks && frontmatter.thanks.text) {
+        hasFront = true;
+        frontHtml += `<div class="thanks"><h3>🙏 ${escapeHtml(frontmatter.thanks.title || 'Agradecimentos')}</h3><div>${escapeHtml(frontmatter.thanks.text).replace(/\n/g,'<br>')}</div></div>`;
+      }
+      frontHtml += `</div>`;
+      if(hasFront) html += frontHtml;
+
+      // ========= CAPÍTULOS ==========
+      if(!chapters.length) {
+        html += `<div class="empty-state" style="margin-top:30px;">Nenhum capítulo encontrado neste livro.</div>`;
+      } else {
+        for(let i=0; i<chapters.length; i++) {
+          const ch = chapters[i];
+          html += `<div class="chapter">`;
+          // título do capítulo
+          html += `<div class="chapter-title">${escapeHtml(ch.title) || `Capítulo ${i+1}`}</div>`;
+          if(ch.subtitle) html += `<div class="chapter-sub">${escapeHtml(ch.subtitle)}</div>`;
+          // imagem de capa do capítulo
+          if(ch.coverImgSrc) {
+            html += `<div class="chapter-cover-img"><img src="${ch.coverImgSrc}" alt="Capa do capítulo" style="max-width:100%;border-radius:12px;"></div>`;
+          }
+          // páginas
+          if(ch.pages && ch.pages.length) {
+            for(let pIdx=0; pIdx<ch.pages.length; pIdx++) {
+              const page = ch.pages[pIdx];
+              html += `<div class="page-item">`;
+              if(page.title) html += `<div class="page-title">${escapeHtml(page.title)}</div>`;
+              html += `<span class="page-badge">${page.type === 'text' ? '📝 Texto' : (page.type === 'image' ? '🖼️ Imagem' : '📄 Misto')}</span>`;
+              // conteúdo textual
+              if(page.content && (page.type === 'text' || page.type === 'mixed' || page.content.trim())) {
+                html += `<div class="page-content">${escapeHtml(page.content).replace(/\n/g,'<br>')}</div>`;
+              }
+              // imagem da página
+              if(page.imgSrc) {
+                html += `<div class="page-image"><img src="${page.imgSrc}" alt="Ilustração da página"><div class="img-caption">${page.imgCaption ? escapeHtml(page.imgCaption) : ''}</div></div>`;
+              } else if (page.type === 'image' && !page.imgSrc) {
+                html += `<div class="page-content" style="color:#b96f3a;">[Imagem não disponível no arquivo]</div>`;
+              }
+              html += `</div>`;
+            }
+          } else {
+            html += `<div class="page-item" style="color:#8f7a5c;"><em>Este capítulo não possui páginas adicionadas.</em></div>`;
+          }
+          html += `</div>`;
+        }
+      }
+
+      // rodapé informativo
+      html += `<div class="section-divider"></div><div style="text-align:center; font-size:0.75rem; color:#9a8a72; padding:20px 0;">Gerado via DGBooks Viewer · ${new Date().toLocaleString()}</div>`;
+      html += `</div>`;
+      previewContainer.innerHTML = html;
+    }
+
+    // parse principal do .dgbooks (ZIP)
+    async function parseDGBooks(file) {
+      const zip = await JSZip.loadAsync(file);
+      // 1. meta/book.json obrigatório
+      const bookJsonFile = zip.file("meta/book.json");
+      if(!bookJsonFile) throw new Error("Arquivo inválido: meta/book.json não encontrado.");
+      const bookMeta = JSON.parse(await bookJsonFile.async("string"));
+
+      // frontmatter optional
+      let frontmatter = { thanks: { title: "Agradecimentos", text: "" }, dedication: "", epigraph: { text: "", author: "" } };
+      const fmFile = zip.file("meta/frontmatter.json");
+      if(fmFile) frontmatter = JSON.parse(await fmFile.async("string"));
+
+      // 2. imagem da capa (procura em images/cover.*)
+      let coverSrc = null;
+      const imageFolder = zip.folder("images");
+      if(imageFolder) {
+        const coverCandidates = Object.keys(zip.files).filter(f => f.startsWith("images/cover.") && !zip.files[f].dir);
+        if(coverCandidates.length) {
+          const coverPath = coverCandidates[0];
+          const coverFile = zip.file(coverPath);
+          if(coverFile) {
+            const b64 = await coverFile.async("base64");
+            const ext = coverPath.split('.').pop().toLowerCase();
+            const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
+            coverSrc = `data:${mime};base64,${b64}`;
+          }
+        }
+      }
+
+      // 3. lista de capítulos: percorrer chapters/chapter_*/chapter.json
+      const chapterPaths = Object.keys(zip.files)
+        .filter(p => p.match(/^chapters\/chapter_\d+\/chapter\.json$/))
+        .sort((a,b) => {
+          const numA = parseInt(a.match(/\d+/)[0]);
+          const numB = parseInt(b.match(/\d+/)[0]);
+          return numA - numB;
+        });
+      
+      const chapters = [];
+      for(const chPath of chapterPaths) {
+        const chJsonContent = await zip.files[chPath].async("string");
+        const chMeta = JSON.parse(chJsonContent);
+        const chDir = chPath.replace("chapter.json", "");
+        
+        // capa do capítulo se existir
+        let chapterCover = null;
+        if(chMeta.cover_image) {
+          const covFullPath = chDir + chMeta.cover_image;
+          const covFile = zip.file(covFullPath);
+          if(covFile) {
+            const b64 = await covFile.async("base64");
+            const ext = covFullPath.split('.').pop().toLowerCase();
+            const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
+            chapterCover = `data:${mime};base64,${b64}`;
+          }
+        }
+        
+        const pages = [];
+        // percorrer array pages do chapter.json
+        if(Array.isArray(chMeta.pages)) {
+          for(let pageMeta of chMeta.pages) {
+            let pageContent = pageMeta.content || "";
+            // caso conteúdo esteja em arquivo .txt separado
+            if(!pageContent && pageMeta.index) {
+              const txtPath = `${chDir}page_${String(pageMeta.index).padStart(3,'0')}.txt`;
+              const txtFile = zip.file(txtPath);
+              if(txtFile) pageContent = await txtFile.async("string");
+            }
+            let imgSrc = null;
+            let imgMime = null;
+            let imgCaption = pageMeta.image_caption || "";
+            if(pageMeta.image) {
+              const imgFullPath = chDir + pageMeta.image;
+              const imgFile = zip.file(imgFullPath);
+              if(imgFile) {
+                const b64 = await imgFile.async("base64");
+                const ext = imgFullPath.split('.').pop().toLowerCase();
+                const mime = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
+                imgSrc = `data:${mime};base64,${b64}`;
+              }
+            }
+            pages.push({
+              type: pageMeta.type || "text",
+              title: pageMeta.title || "",
+              content: pageContent,
+              imgSrc: imgSrc,
+              imgCaption: imgCaption
+            });
+          }
+        } else {
+          // fallback: algumas versões podem ter pages vazio, tentar buscar .txt soltos? manter compat
+        }
+        
+        chapters.push({
+          title: chMeta.title || `Capítulo ${chapterPaths.length}`,
+          subtitle: chMeta.subtitle || "",
+          coverImgSrc: chapterCover,
+          pages: pages
+        });
+      }
+      
+      // total pages count
+      const totalPagesCount = chapters.reduce((acc,ch) => acc + ch.pages.length, 0);
+      
+      return {
+        meta: bookMeta,
+        frontmatter: {
+          thanks: frontmatter.thanks || { title: "Agradecimentos", text: "" },
+          dedication: frontmatter.dedication || "",
+          epigraph: frontmatter.epigraph || { text: "", author: "" }
+        },
+        coverSrc: coverSrc,
+        chapters: chapters,
+        totalPages: totalPagesCount,
+        genresList: bookMeta.genres || []
+      };
+    }
+
+    // evento principal de carregamento
+    async function loadAndDisplay(file) {
+      if(!file) return;
+      clearStatus();
+      showStatus("⏳ Carregando e processando .dgbooks…", false, true);
+      previewContainer.innerHTML = `<div class="empty-state"><span class="loader" style="display:inline-block;"></span> Processando estrutura do livro...</div>`;
+      try {
+        const book = await parseDGBooks(file);
+        currentBookData = book;
+        renderBook(book);
+        showStatus(`✅ "${book.meta.title || 'Livro'}" carregado com ${book.chapters.length} capítulos e ${book.totalPages} páginas. Pronto para visualizar e gerar PDF.`, false);
+      } catch(err) {
+        console.error(err);
+        showStatus(`Erro: ${err.message}`, true);
+        previewContainer.innerHTML = `<div class="empty-state">❌ Falha ao interpretar o arquivo .dgbooks.<br>Verifique se o arquivo é válido (exportado pelo DGBooks Creator).</div>`;
+      } finally {
+        setTimeout(() => { if(statusDiv && statusDiv.style.display !== 'none') statusDiv.style.display = 'none'; }, 2800);
+      }
+    }
+
+    // eventos drag & drop / click
+    uploadZone.addEventListener('click', () => fileInput.click());
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('drag-over');
+    });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+    uploadZone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('drag-over');
+      const dtFile = e.dataTransfer.files[0];
+      if(dtFile && (dtFile.name.endsWith('.dgbooks') || dtFile.name.endsWith('.zip'))) {
+        await loadAndDisplay(dtFile);
+      } else {
+        showStatus("Por favor, envie um arquivo .dgbooks válido.", true);
+      }
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+      if(e.target.files.length) {
+        await loadAndDisplay(e.target.files[0]);
+        fileInput.value = '';
+      }
+    });
+
+    // Gerar PDF → dispara impressão com estilos específicos, e usuário salva como PDF nativamente
+    pdfBtn.addEventListener('click', () => {
+      if(!previewContainer.innerText || previewContainer.querySelector('.empty-state') && !currentBookData) {
+        showStatus("Nenhum livro carregado. Envie um arquivo .dgbooks primeiro.", true);
+        return;
+      }
+      // Se houver conteúdo renderizado, aciona print
+      window.print();
+    });
+
+    // helper esc
+    function escapeHtml(str) {
+      if(!str) return '';
+      return str.replace(/[&<>]/g, function(m) {
+        if(m === '&') return '&amp;';
+        if(m === '<') return '&lt;';
+        if(m === '>') return '&gt;';
+        return m;
+      }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+        return c;
+      });
+    }
+
+    // instrução inicial
+    console.log("DGBooks Viewer pronto. Aguardando arquivo .dgbooks");
+  })();
+</script>
+</body>
+</html>
