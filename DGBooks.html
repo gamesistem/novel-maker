@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DGBooks Creator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1117;--panel:#1a1d27;--card:#21253a;--border:#2e3350;
+    --accent:#6c63ff;--accent2:#ff6584;--accent3:#43e97b;
+    --text:#e8eaf6;--muted:#8b93b8;--danger:#ff4d6d;
+    --radius:10px;--shadow:0 4px 24px #0008;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+  /* HEADER */
+  header{background:var(--panel);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100}
+  header .logo{font-size:1.5rem;font-weight:800;color:var(--accent);letter-spacing:-1px}
+  header .logo span{color:var(--accent2)}
+  header .subtitle{color:var(--muted);font-size:.85rem}
+  header .actions{margin-left:auto;display:flex;gap:10px}
+  /* LAYOUT */
+  .app{display:flex;flex:1;overflow:hidden}
+  /* SIDEBAR */
+  .sidebar{width:220px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 0;gap:2px;overflow-y:auto}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;border-radius:0;transition:.2s;color:var(--muted);font-size:.92rem;border-left:3px solid transparent}
+  .nav-item:hover{background:var(--card);color:var(--text)}
+  .nav-item.active{background:var(--card);color:var(--accent);border-left-color:var(--accent)}
+  .nav-item .icon{font-size:1.1rem;width:22px;text-align:center}
+  .sidebar-sep{height:1px;background:var(--border);margin:10px 16px}
+  .sidebar-label{padding:8px 20px;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+  /* MAIN */
+  .main{flex:1;overflow-y:auto;padding:32px}
+  .section{display:none}
+  .section.active{display:block}
+  /* CARDS */
+  h2{font-size:1.3rem;font-weight:700;margin-bottom:20px;color:var(--text)}
+  h3{font-size:1rem;font-weight:600;margin-bottom:12px;color:var(--muted)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+  /* FORM */
+  label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:5px;font-weight:500}
+  input[type=text],input[type=date],input[type=number],input[type=email],textarea,select{
+    width:100%;background:#0f1117;border:1px solid var(--border);border-radius:7px;
+    color:var(--text);padding:9px 12px;font-size:.9rem;outline:none;transition:.2s;font-family:inherit
+  }
+  input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px #6c63ff22}
+  textarea{resize:vertical;min-height:90px}
+  .form-group{margin-bottom:14px}
+  /* BUTTONS */
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-size:.88rem;font-weight:600;transition:.2s}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:#5a52e0}
+  .btn-success{background:var(--accent3);color:#0f1117}
+  .btn-success:hover{filter:brightness(1.1)}
+  .btn-danger{background:var(--danger);color:#fff}
+  .btn-danger:hover{filter:brightness(1.1)}
+  .btn-ghost{background:var(--border);color:var(--text)}
+  .btn-ghost:hover{background:var(--muted)}
+  .btn-sm{padding:6px 12px;font-size:.8rem}
+  /* IMAGE UPLOAD */
+  .img-upload{border:2px dashed var(--border);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;transition:.2s;position:relative}
+  .img-upload:hover{border-color:var(--accent);background:#6c63ff0a}
+  .img-upload input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  .img-upload img{max-height:160px;max-width:100%;border-radius:6px;margin-top:8px}
+  .img-upload .placeholder{color:var(--muted);font-size:.85rem}
+  /* TAGS */
+  .tags-container{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+  .tag{background:var(--accent)22;color:var(--accent);border:1px solid var(--accent)44;border-radius:20px;padding:4px 12px;font-size:.8rem;display:flex;align-items:center;gap:6px}
+  .tag .remove{cursor:pointer;color:var(--accent2);font-weight:700;line-height:1}
+  .tag-input-row{display:flex;gap:8px;margin-bottom:8px}
+  /* CHAPTERS */
+  .chapter-list{display:flex;flex-direction:column;gap:10px}
+  .chapter-item{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .chapter-header{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:.2s}
+  .chapter-header:hover{background:var(--card)}
+  .chapter-num{background:var(--accent);color:#fff;border-radius:6px;padding:3px 10px;font-size:.8rem;font-weight:700}
+  .chapter-title-display{flex:1;font-weight:600;font-size:.95rem}
+  .chapter-body{padding:16px;border-top:1px solid var(--border);display:none}
+  .chapter-body.open{display:block}
+  .chapter-actions{display:flex;gap:8px;margin-top:12px}
+  /* PAGES */
+  .pages-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+  .page-item{background:#0f1117;border:1px solid var(--border);border-radius:7px;padding:10px 14px;display:flex;align-items:flex-start;gap:10px}
+  .page-num-badge{background:var(--border);color:var(--muted);border-radius:5px;padding:2px 8px;font-size:.75rem;font-weight:700;min-width:34px;text-align:center;margin-top:2px}
+  .page-content{flex:1}
+  .page-type-badge{font-size:.7rem;padding:2px 8px;border-radius:10px;font-weight:600}
+  .pt-text{background:#6c63ff22;color:var(--accent)}
+  .pt-image{background:#ff658422;color:var(--accent2)}
+  .pt-mixed{background:#43e97b22;color:var(--accent3)}
+  /* PROGRESS / STATUS */
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+  .badge-ok{background:#43e97b22;color:var(--accent3)}
+  .badge-warn{background:#ffd16622;color:#ffd166}
+  .badge-err{background:#ff4d6d22;color:var(--danger)}
+  /* PREVIEW */
+  .book-preview{background:#fff;color:#111;border-radius:var(--radius);max-width:480px;margin:0 auto;box-shadow:var(--shadow);overflow:hidden}
+  .preview-cover{width:100%;height:260px;object-fit:cover;display:block}
+  .preview-cover-placeholder{width:100%;height:260px;background:linear-gradient(135deg,#6c63ff,#ff6584);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.3rem;font-weight:700;text-align:center;padding:20px}
+  .preview-body{padding:24px}
+  .preview-title{font-size:1.6rem;font-weight:800;margin-bottom:6px;color:#111}
+  .preview-author{color:#666;font-size:.95rem;margin-bottom:14px}
+  .preview-genres{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .preview-genre{background:#6c63ff22;color:#6c63ff;border-radius:20px;padding:3px 11px;font-size:.78rem;font-weight:600}
+  .preview-desc{color:#444;font-size:.9rem;line-height:1.6}
+  /* DIVIDER */
+  .divider{height:1px;background:var(--border);margin:20px 0}
+  /* EXPORT STATUS */
+  .export-steps{display:flex;flex-direction:column;gap:8px;margin:16px 0}
+  .export-step{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card);border-radius:8px;font-size:.85rem}
+  .step-icon{font-size:1.1rem}
+  /* SCROLLBAR */
+  ::-webkit-scrollbar{width:6px}
+  ::-webkit-scrollbar-track{background:var(--bg)}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  /* TOAST */
+  #toast{position:fixed;bottom:28px;right:28px;background:var(--accent);color:#fff;padding:12px 22px;border-radius:10px;font-weight:600;font-size:.9rem;opacity:0;transform:translateY(10px);transition:.3s;pointer-events:none;z-index:999}
+  #toast.show{opacity:1;transform:translateY(0)}
+  /* MODAL */
+  .modal-overlay{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:200}
+  .modal-overlay.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:28px;width:min(520px,95vw);max-height:85vh;overflow-y:auto}
+  .modal h3{margin-bottom:18px;font-size:1.1rem}
+  .modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+  /* responsive */
+  @media(max-width:700px){
+    .sidebar{width:52px;padding:16px 0}
+    .nav-item{padding:12px;justify-content:center}
+    .nav-item .label,.sidebar-label,.sidebar-sep{display:none}
+    .grid2,.grid3{grid-template-columns:1fr}
+    .main{padding:16px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DG<span>Books</span></div>
+  <div class="subtitle">Editor de Livros</div>
+  <div class="actions">
+    <button class="btn btn-ghost btn-sm" onclick="showSection('preview')">👁 Prévia</button>
+    <button class="btn btn-success" onclick="exportBook()">⬇ Exportar .dgbooks</button>
+  </div>
+</header>
+<div class="app">
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="nav-item active" onclick="showSection('metadata')" data-section="metadata"><span class="icon">📋</span><span class="label">Metadados</span></div>
+    <div class="nav-item" onclick="showSection('cover')" data-section="cover"><span class="icon">🎨</span><span class="label">Capa & Contra</span></div>
+    <div class="nav-item" onclick="showSection('chapters')" data-section="chapters"><span class="icon">📖</span><span class="label">Capítulos</span></div>
+    <div class="nav-item" onclick="showSection('thanks')" data-section="thanks"><span class="icon">🙏</span><span class="label">Agradecimentos</span></div>
+    <div class="nav-item" onclick="showSection('preview')" data-section="preview"><span class="icon">👁</span><span class="label">Prévia</span></div>
+    <div class="sidebar-sep"></div>
+    <div class="sidebar-label">Exportar</div>
+    <div class="nav-item" onclick="exportBook()"><span class="icon">📦</span><span class="label">Exportar</span></div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- ===== METADATA ===== -->
+    <section class="section active" id="sec-metadata">
+      <h2>📋 Informações do Livro</h2>
+      <div class="card">
+        <h3>Identificação</h3>
+        <div class="grid2">
+          <div class="form-group"><label>Título do Livro *</label><input type="text" id="book-title" placeholder="Ex: O Jardim das Sombras"/></div>
+          <div class="form-group"><label>Subtítulo</label><input type="text" id="book-subtitle" placeholder="Opcional"/></div>
+          <div class="form-group"><label>Autor(a) *</label><input type="text" id="book-author" placeholder="Nome completo"/></div>
+          <div class="form-group"><label>Co-Autor(a)</label><input type="text" id="book-coauthor" placeholder="Opcional"/></div>
+          <div class="form-group"><label>Editora</label><input type="text" id="book-publisher" placeholder="Nome da editora"/></div>
+          <div class="form-group"><label>ISBN</label><input type="text" id="book-isbn" placeholder="Ex: 978-85-000-0000-0"/></div>
+          <div class="form-group"><label>Data de Publicação</label><input type="date" id="book-date"/></div>
+          <div class="form-group"><label>Edição</label><input type="number" id="book-edition" placeholder="1" min="1"/></div>
+          <div class="form-group"><label>Idioma</label>
+            <select id="book-lang">
+              <option value="pt-BR">Português (Brasil)</option>
+              <option value="pt-PT">Português (Portugal)</option>
+              <option value="en">Inglês</option>
+              <option value="es">Espanhol</option>
+              <option value="fr">Francês</option>
+              <option value="other">Outro</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Versão do Arquivo</label><input type="text" id="book-version" placeholder="1.0.0"/></div>
+        </div>
+        <div class="form-group"><label>Sinopse / Descrição *</label><textarea id="book-synopsis" rows="4" placeholder="Escreva uma sinopse do livro..."></textarea></div>
+      </div>
+
+      <div class="card">
+        <h3>Gêneros / Tags</h3>
+        <div class="tag-input-row">
+          <input type="text" id="genre-input" placeholder="Ex: Fantasia, Romance, Terror..." style="flex:1" onkeydown="if(event.key==='Enter')addGenre()"/>
+          <button class="btn btn-primary btn-sm" onclick="addGenre()">+ Adicionar</button>
+        </div>
+        <div class="tags-container" id="genres-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>Direitos & Licença</h3>
+        <div class="grid2">
+          <div class="form-group"><label>Copyright</label><input type="text" id="book-copyright" placeholder="© 2025 Nome do Autor"/></div>
+          <div class="form-group"><label>Licença</label>
+            <select id="book-license">
+              <option value="all-rights">Todos os Direitos Reservados</option>
+              <option value="cc-by">CC BY 4.0</option>
+              <option value="cc-by-sa">CC BY-SA 4.0</option>
+              <option value="cc-by-nc">CC BY-NC 4.0</option>
+              <option value="public-domain">Domínio Público</option>
+            </select>
+          </div>
+          <div class="form-group"><label>E-mail do Autor</label><input type="email" id="book-email" placeholder="autor@email.com"/></div>
+          <div class="form-group"><label>Site / Portfolio</label><input type="text" id="book-website" placeholder="https://..."/></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CAPA ===== -->
+    <section class="section" id="sec-cover">
+      <h2>🎨 Capa & Contracapa</h2>
+      <div class="grid2">
+        <div class="card">
+          <h3>Capa (Frente)</h3>
+          <div class="img-upload" id="cover-upload-area">
+            <input type="file" accept="image/*" id="cover-file" onchange="loadImage('cover-file','cover-preview','cover-b64','cover-mime')"/>
+            <div class="placeholder" id="cover-ph">📷 Clique para selecionar imagem<br/><small>JPG, PNG, WebP — máx 10MB</small></div>
+            <img id="cover-preview" style="display:none"/>
+          </div>
+          <input type="hidden" id="cover-b64"/><input type="hidden" id="cover-mime"/>
+          <div class="form-group" style="margin-top:12px"><label>Texto alternativo da capa</label><input type="text" id="cover-alt" placeholder="Descrição da imagem de capa"/></div>
+          <button class="btn btn-danger btn-sm" style="margin-top:6px" onclick="clearImage('cover-preview','cover-b64','cover-mime','cover-ph')">🗑 Remover</button>
+        </div>
+        <div class="card">
+          <h3>Contracapa (Verso)</h3>
+          <div class="img-upload">
+            <input type="file" accept="image/*" id="backcover-file" onchange="loadImage('backcover-file','backcover-preview','backcover-b64','backcover-mime')"/>
+            <div class="placeholder" id="backcover-ph">📷 Clique para selecionar imagem<br/><small>JPG, PNG, WebP — máx 10MB</small></div>
+            <img id="backcover-preview" style="display:none"/>
+          </div>
+          <input type="hidden" id="backcover-b64"/><input type="hidden" id="backcover-mime"/>
+          <button class="btn btn-danger btn-sm" style="margin-top:12px" onclick="clearImage('backcover-preview','backcover-b64','backcover-mime','backcover-ph')">🗑 Remover</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Imagem de Spine (Lombada) — Opcional</h3>
+        <div class="img-upload" style="max-width:340px">
+          <input type="file" accept="image/*" id="spine-file" onchange="loadImage('spine-file','spine-preview','spine-b64','spine-mime')"/>
+          <div class="placeholder" id="spine-ph">📷 Selecionar lombada</div>
+          <img id="spine-preview" style="display:none"/>
+        </div>
+        <input type="hidden" id="spine-b64"/><input type="hidden" id="spine-mime"/>
+        <button class="btn btn-danger btn-sm" style="margin-top:8px" onclick="clearImage('spine-preview','spine-b64','spine-mime','spine-ph')">🗑 Remover</button>
+      </div>
+    </section>
+
+    <!-- ===== CAPÍTULOS ===== -->
+    <section class="section" id="sec-chapters">
+      <h2>📖 Capítulos</h2>
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="addChapter()">+ Novo Capítulo</button>
+        <button class="btn btn-ghost btn-sm" onclick="reorderChapters()">↕ Reordenar</button>
+        <span class="badge badge-ok" id="chapter-count-badge">0 capítulos</span>
+      </div>
+      <div class="chapter-list" id="chapter-list"></div>
+    </section>
+
+    <!-- ===== AGRADECIMENTOS ===== -->
+    <section class="section" id="sec-thanks">
+      <h2>🙏 Página de Agradecimentos</h2>
+      <div class="card">
+        <div class="form-group"><label>Título da Seção</label><input type="text" id="thanks-title" value="Agradecimentos"/></div>
+        <div class="form-group"><label>Texto de Agradecimentos</label><textarea id="thanks-text" rows="8" placeholder="Escreva seus agradecimentos aqui...
+
+Ex: Agradeço à minha família pelo apoio incondicional..."></textarea></div>
+      </div>
+      <div class="card">
+        <h3>Dedicatória</h3>
+        <div class="form-group"><label>Texto de Dedicatória</label><textarea id="dedication-text" rows="4" placeholder="Para..."></textarea></div>
+      </div>
+      <div class="card">
+        <h3>Epígrafe</h3>
+        <div class="form-group"><label>Citação / Frase</label><textarea id="epigraph-text" rows="3" placeholder="&quot;A frase inspiradora aqui.&quot;"></textarea></div>
+        <div class="form-group"><label>Autor da Citação</label><input type="text" id="epigraph-author" placeholder="— Autor"/></div>
+      </div>
+    </section>
+
+    <!-- ===== PREVIEW ===== -->
+    <section class="section" id="sec-preview">
+      <h2>👁 Prévia do Livro</h2>
+      <div id="preview-container"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- MODAL Adicionar Página -->
+<div class="modal-overlay" id="page-modal">
+  <div class="modal">
+    <h3>➕ Adicionar Página</h3>
+    <div class="form-group"><label>Tipo de Página</label>
+      <select id="page-type-select" onchange="togglePageFields()">
+        <option value="text">Texto</option>
+        <option value="image">Imagem</option>
+        <option value="mixed">Texto + Imagem</option>
+      </select>
+    </div>
+    <div id="page-text-fields">
+      <div class="form-group"><label>Título da Página (opcional)</label><input type="text" id="page-title-input" placeholder="Título (opcional)"/></div>
+      <div class="form-group"><label>Conteúdo</label><textarea id="page-content-input" rows="6" placeholder="Escreva o conteúdo da página..."></textarea></div>
+    </div>
+    <div id="page-image-fields">
+      <div class="form-group"><label>Imagem da Página</label>
+        <div class="img-upload">
+          <input type="file" accept="image/*" id="page-img-file" onchange="loadImage('page-img-file','page-img-preview','page-img-b64','page-img-mime')"/>
+          <div class="placeholder" id="page-img-ph">📷 Selecionar imagem</div>
+          <img id="page-img-preview" style="display:none;max-height:120px"/>
+        </div>
+        <input type="hidden" id="page-img-b64"/><input type="hidden" id="page-img-mime"/>
+      </div>
+      <div class="form-group"><label>Legenda da Imagem</label><input type="text" id="page-img-caption" placeholder="Legenda..."/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closePageModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmAddPage()">Adicionar Página</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ==================== STATE ====================
+let chapters = [];
+let genres = [];
+let currentChapterIdx = null;
+
+// ==================== NAVIGATION ====================
+function showSection(name){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  document.querySelectorAll(`[data-section="${name}"]`).forEach(n=>n.classList.add('active'));
+  if(name==='preview') renderPreview();
+}
+
+// ==================== TOAST ====================
+function toast(msg,color='var(--accent)'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.background=color;
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+// ==================== GENRES ====================
+function addGenre(){
+  const inp=document.getElementById('genre-input');
+  const val=inp.value.trim();
+  if(!val) return;
+  val.split(',').forEach(g=>{
+    const gv=g.trim();
+    if(gv && !genres.includes(gv)) genres.push(gv);
+  });
+  inp.value='';
+  renderGenres();
+}
+function removeGenre(g){genres=genres.filter(x=>x!==g);renderGenres();}
+function renderGenres(){
+  const el=document.getElementById('genres-list');
+  el.innerHTML=genres.map(g=>`<span class="tag">${g}<span class="remove" onclick="removeGenre('${g}')">✕</span></span>`).join('');
+}
+
+// ==================== IMAGES ====================
+function loadImage(fileId, previewId, b64Id, mimeId){
+  const file=document.getElementById(fileId).files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const data=e.target.result;
+    const b64=data.split(',')[1];
+    const mime=data.split(';')[0].split(':')[1];
+    document.getElementById(b64Id).value=b64;
+    document.getElementById(mimeId).value=mime;
+    const prev=document.getElementById(previewId);
+    prev.src=data; prev.style.display='block';
+    const ph=document.getElementById(fileId.replace('-file','-ph'));
+    if(ph) ph.style.display='none';
+  };
+  reader.readAsDataURL(file);
+}
+function clearImage(previewId,b64Id,mimeId,phId){
+  document.getElementById(previewId).style.display='none';
+  document.getElementById(previewId).src='';
+  document.getElementById(b64Id).value='';
+  document.getElementById(mimeId).value='';
+  document.getElementById(phId).style.display='block';
+}
+
+// ==================== CHAPTERS ====================
+function addChapter(){
+  const idx=chapters.length;
+  chapters.push({
+    id: Date.now(),
+    title: `Capítulo ${idx+1}`,
+    subtitle: '',
+    cover_b64:'',cover_mime:'',
+    pages:[]
+  });
+  renderChapters();
+  setTimeout(()=>toggleChapter(idx),50);
+}
+function removeChapter(idx){
+  if(!confirm('Remover este capítulo?')) return;
+  chapters.splice(idx,1);
+  renderChapters();
+  toast('Capítulo removido','var(--danger)');
+}
+function toggleChapter(idx){
+  const body=document.getElementById(`ch-body-${idx}`);
+  if(body) body.classList.toggle('open');
+}
+function updateChapterField(idx,field,val){
+  chapters[idx][field]=val;
+  if(field==='title'){
+    const disp=document.getElementById(`ch-title-disp-${idx}`);
+    if(disp) disp.textContent=val||'(sem título)';
+  }
+}
+function reorderChapters(){toast('Arraste e solte em versão futura','#ffd166');}
+function renderChapters(){
+  const list=document.getElementById('chapter-list');
+  if(chapters.length===0){
+    list.innerHTML=`<div style="text-align:center;color:var(--muted);padding:40px">Nenhum capítulo ainda. Clique em "Novo Capítulo".</div>`;
+    document.getElementById('chapter-count-badge').textContent='0 capítulos';
+    return;
+  }
+  document.getElementById('chapter-count-badge').textContent=`${chapters.length} capítulo${chapters.length>1?'s':''}`;
+  list.innerHTML=chapters.map((ch,i)=>`
+    <div class="chapter-item">
+      <div class="chapter-header" onclick="toggleChapter(${i})">
+        <span class="chapter-num">Cap. ${i+1}</span>
+        <span class="chapter-title-display" id="ch-title-disp-${i}">${ch.title||'(sem título)'}</span>
+        <span style="color:var(--muted);font-size:.8rem">${ch.pages.length} página${ch.pages.length!==1?'s':''}</span>
+        <span style="color:var(--muted);margin-left:8px">▾</span>
+      </div>
+      <div class="chapter-body" id="ch-body-${i}">
+        <div class="grid2">
+          <div class="form-group"><label>Título do Capítulo</label>
+            <input type="text" value="${esc(ch.title)}" oninput="updateChapterField(${i},'title',this.value)" placeholder="Título..."/>
+          </div>
+          <div class="form-group"><label>Subtítulo</label>
+            <input type="text" value="${esc(ch.subtitle||'')}" oninput="updateChapterField(${i},'subtitle',this.value)" placeholder="Subtítulo (opcional)"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Imagem de Capa do Capítulo</label>
+          <div class="img-upload" style="max-width:260px">
+            <input type="file" accept="image/*" id="ch-cover-file-${i}" onchange="loadChapterCover(${i})"/>
+            <div class="placeholder" id="ch-cover-ph-${i}" ${ch.cover_b64?'style="display:none"':''}>📷 Selecionar capa do capítulo</div>
+            <img id="ch-cover-prev-${i}" src="${ch.cover_b64?'data:'+ch.cover_mime+';base64,'+ch.cover_b64:''}" style="display:${ch.cover_b64?'block':'none'};max-height:120px"/>
+          </div>
+          <button class="btn btn-danger btn-sm" style="margin-top:6px" onclick="clearChapterCover(${i})">🗑 Remover capa</button>
+        </div>
+        <div class="divider"></div>
+        <h3>Páginas</h3>
+        <div class="pages-list" id="pages-list-${i}">
+          ${renderPages(i)}
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openPageModal(${i})">+ Adicionar Página</button>
+        <div class="chapter-actions">
+          <button class="btn btn-danger btn-sm" onclick="removeChapter(${i})">🗑 Remover Capítulo</button>
+          ${i>0?`<button class="btn btn-ghost btn-sm" onclick="moveChapter(${i},-1)">↑ Mover</button>`:''}
+          ${i<chapters.length-1?`<button class="btn btn-ghost btn-sm" onclick="moveChapter(${i},1)">↓ Mover</button>`:''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+function moveChapter(idx,dir){
+  const ni=idx+dir;
+  if(ni<0||ni>=chapters.length) return;
+  [chapters[idx],chapters[ni]]=[chapters[ni],chapters[idx]];
+  renderChapters();
+}
+function loadChapterCover(idx){
+  const file=document.getElementById(`ch-cover-file-${idx}`).files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const data=e.target.result;
+    chapters[idx].cover_b64=data.split(',')[1];
+    chapters[idx].cover_mime=data.split(';')[0].split(':')[1];
+    document.getElementById(`ch-cover-prev-${idx}`).src=data;
+    document.getElementById(`ch-cover-prev-${idx}`).style.display='block';
+    document.getElementById(`ch-cover-ph-${idx}`).style.display='none';
+  };
+  reader.readAsDataURL(file);
+}
+function clearChapterCover(idx){
+  chapters[idx].cover_b64=''; chapters[idx].cover_mime='';
+  document.getElementById(`ch-cover-prev-${idx}`).style.display='none';
+  document.getElementById(`ch-cover-ph-${idx}`).style.display='block';
+}
+function renderPages(chIdx){
+  const ch=chapters[chIdx];
+  if(!ch.pages.length) return `<div style="color:var(--muted);font-size:.85rem;padding:8px 0">Nenhuma página. Adicione uma abaixo.</div>`;
+  return ch.pages.map((p,pi)=>`
+    <div class="page-item">
+      <span class="page-num-badge">${pi+1}</span>
+      <div class="page-content">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span class="page-type-badge pt-${p.type}">${p.type==='text'?'📝 Texto':p.type==='image'?'🖼 Imagem':'📝🖼 Misto'}</span>
+          ${p.title?`<span style="font-weight:600;font-size:.88rem">${esc(p.title)}</span>`:''}
+        </div>
+        ${p.content?`<div style="font-size:.82rem;color:var(--muted);white-space:pre-wrap;max-height:50px;overflow:hidden">${esc(p.content.substring(0,120))}${p.content.length>120?'…':''}</div>`:''}
+        ${p.img_b64?`<div style="font-size:.78rem;color:var(--accent2)">🖼 Imagem anexada ${p.img_caption?'— '+esc(p.img_caption):''}</div>`:''}
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="removePage(${chIdx},${pi})">✕</button>
+    </div>
+  `).join('');
+}
+function removePage(chIdx,pIdx){
+  chapters[chIdx].pages.splice(pIdx,1);
+  document.getElementById(`pages-list-${chIdx}`).innerHTML=renderPages(chIdx);
+  toast('Página removida','var(--danger)');
+}
+
+// ==================== PAGE MODAL ====================
+function openPageModal(chIdx){
+  currentChapterIdx=chIdx;
+  document.getElementById('page-type-select').value='text';
+  document.getElementById('page-title-input').value='';
+  document.getElementById('page-content-input').value='';
+  document.getElementById('page-img-b64').value='';
+  document.getElementById('page-img-mime').value='';
+  document.getElementById('page-img-preview').style.display='none';
+  document.getElementById('page-img-caption').value='';
+  document.getElementById('page-img-ph').style.display='block';
+  togglePageFields();
+  document.getElementById('page-modal').classList.add('open');
+}
+function closePageModal(){document.getElementById('page-modal').classList.remove('open');}
+function togglePageFields(){
+  const t=document.getElementById('page-type-select').value;
+  document.getElementById('page-text-fields').style.display=(t==='text'||t==='mixed')?'block':'none';
+  document.getElementById('page-image-fields').style.display=(t==='image'||t==='mixed')?'block':'none';
+}
+function confirmAddPage(){
+  const type=document.getElementById('page-type-select').value;
+  const page={
+    type,
+    title:document.getElementById('page-title-input').value.trim(),
+    content:document.getElementById('page-content-input').value,
+    img_b64:document.getElementById('page-img-b64').value,
+    img_mime:document.getElementById('page-img-mime').value,
+    img_caption:document.getElementById('page-img-caption').value.trim()
+  };
+  if(type==='text'&&!page.content){toast('Adicione algum conteúdo!','var(--danger)');return;}
+  if(type==='image'&&!page.img_b64){toast('Selecione uma imagem!','var(--danger)');return;}
+  chapters[currentChapterIdx].pages.push(page);
+  document.getElementById(`pages-list-${currentChapterIdx}`).innerHTML=renderPages(currentChapterIdx);
+  closePageModal();
+  toast('Página adicionada! ✅');
+}
+
+// ==================== PREVIEW ====================
+function renderPreview(){
+  const title=v('book-title')||'Sem título';
+  const author=v('book-author')||'Autor desconhecido';
+  const synopsis=v('book-synopsis')||'';
+  const coverB64=v('cover-b64');
+  const coverMime=v('cover-mime');
+  const el=document.getElementById('preview-container');
+  el.innerHTML=`
+    <div class="book-preview">
+      ${coverB64
+        ?`<img class="preview-cover" src="data:${coverMime};base64,${coverB64}" alt="Capa"/>`
+        :`<div class="preview-cover-placeholder">📚 ${title}</div>`}
+      <div class="preview-body">
+        <div class="preview-title">${esc(title)}</div>
+        <div class="preview-author">por ${esc(author)}</div>
+        <div class="preview-genres">${genres.map(g=>`<span class="preview-genre">${esc(g)}</span>`).join('')}</div>
+        <div class="preview-desc">${esc(synopsis)}</div>
+        <div class="divider"></div>
+        <div style="color:var(--muted);font-size:.85rem">
+          <strong>Capítulos:</strong> ${chapters.length} &nbsp;|&nbsp;
+          <strong>Páginas totais:</strong> ${chapters.reduce((s,c)=>s+c.pages.length,0)}
+          ${v('book-publisher')?`&nbsp;|&nbsp; <strong>Editora:</strong> ${esc(v('book-publisher'))}`:''}
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:28px">
+      <h3 style="margin-bottom:12px">Estrutura do Livro</h3>
+      ${chapters.length===0?`<div style="color:var(--muted)">Nenhum capítulo criado.</div>`:chapters.map((ch,i)=>`
+        <div class="card" style="margin-bottom:10px;padding:14px">
+          <div style="font-weight:700;margin-bottom:4px">📖 Capítulo ${i+1}: ${esc(ch.title)}</div>
+          <div style="color:var(--muted);font-size:.82rem">${ch.pages.length} página${ch.pages.length!==1?'s':''}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ==================== EXPORT ====================
+async function exportBook(){
+  const title=v('book-title');
+  if(!title){toast('Preencha o título do livro!','var(--danger)');showSection('metadata');return;}
+  if(!v('book-author')){toast('Preencha o autor do livro!','var(--danger)');showSection('metadata');return;}
+
+  toast('Gerando arquivo .dgbooks…');
+
+  const zip=new JSZip();
+  const meta=zip.folder('meta');
+  const images=zip.folder('images');
+  const chaptersFolder=zip.folder('chapters');
+
+  // --- metadata/book.json ---
+  const bookMeta={
+    format:'dgbooks',
+    format_version:'1.0',
+    title:v('book-title'),
+    subtitle:v('book-subtitle'),
+    author:v('book-author'),
+    coauthor:v('book-coauthor'),
+    publisher:v('book-publisher'),
+    isbn:v('book-isbn'),
+    publication_date:v('book-date'),
+    edition:v('book-edition'),
+    language:v('book-lang'),
+    file_version:v('book-version')||'1.0.0',
+    copyright:v('book-copyright'),
+    license:v('book-license'),
+    email:v('book-email'),
+    website:v('book-website'),
+    genres:[...genres],
+    synopsis:v('book-synopsis'),
+    total_chapters:chapters.length,
+    total_pages:chapters.reduce((s,c)=>s+c.pages.length,0),
+    created_at:new Date().toISOString()
+  };
+  meta.file('book.json', JSON.stringify(bookMeta,null,2));
+
+  // --- metadata/frontmatter.json ---
+  const frontmatter={
+    thanks:{
+      title:v('thanks-title')||'Agradecimentos',
+      text:v('thanks-text')
+    },
+    dedication:v('dedication-text'),
+    epigraph:{
+      text:v('epigraph-text'),
+      author:v('epigraph-author')
+    }
+  };
+  meta.file('frontmatter.json', JSON.stringify(frontmatter,null,2));
+
+  // --- images/cover ---
+  const coverB64=v('cover-b64');
+  if(coverB64){
+    const ext=mimeToExt(v('cover-mime'));
+    images.file(`cover.${ext}`, coverB64, {base64:true});
+    bookMeta.cover_image=`images/cover.${ext}`;
+  }
+  const backB64=v('backcover-b64');
+  if(backB64){
+    const ext=mimeToExt(v('backcover-mime'));
+    images.file(`backcover.${ext}`, backB64, {base64:true});
+  }
+  const spineB64=v('spine-b64');
+  if(spineB64){
+    const ext=mimeToExt(v('spine-mime'));
+    images.file(`spine.${ext}`, spineB64, {base64:true});
+  }
+
+  // --- chapters ---
+  for(let i=0;i<chapters.length;i++){
+    const ch=chapters[i];
+    const chFolder=chaptersFolder.folder(`chapter_${String(i+1).padStart(3,'0')}`);
+    const chImgs=chFolder.folder('images');
+
+    const chMeta={
+      index:i+1,
+      title:ch.title,
+      subtitle:ch.subtitle,
+      cover_image: ch.cover_b64 ? `images/chapter_cover.${mimeToExt(ch.cover_mime)}` : null,
+      pages:[]
+    };
+
+    if(ch.cover_b64){
+      const ext=mimeToExt(ch.cover_mime);
+      chImgs.file(`chapter_cover.${ext}`, ch.cover_b64, {base64:true});
+    }
+
+    for(let pi=0;pi<ch.pages.length;pi++){
+      const page=ch.pages[pi];
+      const pMeta={index:pi+1, type:page.type, title:page.title, content:page.content};
+      if(page.img_b64){
+        const ext=mimeToExt(page.img_mime);
+        const fname=`page_${String(pi+1).padStart(3,'0')}_img.${ext}`;
+        chImgs.file(fname, page.img_b64, {base64:true});
+        pMeta.image=`images/${fname}`;
+        pMeta.image_caption=page.img_caption;
+      }
+      chMeta.pages.push(pMeta);
+
+      // text file per page
+      if(page.content){
+        chFolder.file(`page_${String(pi+1).padStart(3,'0')}.txt`, page.content);
+      }
+    }
+    chFolder.file('chapter.json', JSON.stringify(chMeta,null,2));
+  }
+
+  // --- toc.json ---
+  const toc={
+    title:v('book-title'),
+    chapters:chapters.map((ch,i)=>({
+      index:i+1,
+      title:ch.title,
+      subtitle:ch.subtitle,
+      page_count:ch.pages.length,
+      folder:`chapters/chapter_${String(i+1).padStart(3,'0')}`
+    }))
+  };
+  meta.file('toc.json', JSON.stringify(toc,null,2));
+
+  // --- README ---
+  zip.file('README.txt',
+`DGBooks Format v1.0
+===================
+Título: ${v('book-title')}
+Autor:  ${v('book-author')}
+Gerado: ${new Date().toLocaleString('pt-BR')}
+
+Estrutura:
+  meta/           → Metadados do livro (book.json, frontmatter.json, toc.json)
+  images/         → Capa, contracapa, lombada
+  chapters/       → Um subdiretório por capítulo
+    chapter_XXX/
+      chapter.json   → Metadados do capítulo
+      page_XXX.txt   → Conteúdo textual das páginas
+      images/        → Imagens das páginas e capa do capítulo
+`);
+
+  const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+  const safeTitle=v('book-title').replace(/[^a-zA-Z0-9À-ÿ\s-]/g,'').replace(/\s+/g,'_').substring(0,40);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`${safeTitle||'livro'}.dgbooks`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  toast('✅ Arquivo .dgbooks exportado com sucesso!','var(--accent3)');
+}
+
+// ==================== UTILS ====================
+function v(id){return document.getElementById(id)?.value||'';}
+function esc(s){return s?s.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'&quot;'):''}
+function mimeToExt(mime){
+  const map={'image/jpeg':'jpg','image/jpg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/svg+xml':'svg'};
+  return map[mime]||'bin';
+}
+
+// close modal on overlay click
+document.getElementById('page-modal').addEventListener('click',function(e){if(e.target===this)closePageModal();});
+</script>
+</body>
+</html>
